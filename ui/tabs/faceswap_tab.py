@@ -142,7 +142,7 @@ def faceswap_tab():
     bt_preview_mask.click(fn=on_preview_mask, inputs=[preview_frame_num, bt_destfiles, clip_text], outputs=[previewimage]) 
 
     start_event = bt_start.click(fn=start_swap, 
-        inputs=[ui.globals.ui_selected_enhancer, selected_face_detection, roop.globals.keep_frames,
+        inputs=[ui.globals.ui_selected_enhancer, selected_face_detection, roop.globals.keep_frames, roop.globals.wait_after_extraction,
                     roop.globals.skip_audio, max_face_distance, ui.globals.ui_blend_ratio, chk_useclip, clip_text,video_swapping_method, no_face_action],
         outputs=[bt_start, resultfiles])
     after_swap_event = start_event.then(fn=on_resultfiles_finished, inputs=[resultfiles], outputs=[resultimage, resultvideo])
@@ -462,7 +462,7 @@ def translate_swap_mode(dropdown_text):
 
 
 
-def start_swap( enhancer, detection, keep_frames, skip_audio, face_distance, blend_ratio,
+def start_swap( enhancer, detection, keep_frames, wait_after_extraction, skip_audio, face_distance, blend_ratio,
                 use_clip, clip_text, processing_method, no_face_action, progress=gr.Progress(track_tqdm=False)):
     from ui.main import prepare_environment
     from roop.core import batch_process
@@ -482,6 +482,7 @@ def start_swap( enhancer, detection, keep_frames, skip_audio, face_distance, ble
     roop.globals.distance_threshold = face_distance
     roop.globals.blend_ratio = blend_ratio
     roop.globals.keep_frames = keep_frames
+    roop.globals.wait_after_extraction = wait_after_extraction
     roop.globals.skip_audio = skip_audio
     roop.globals.face_swap_mode = translate_swap_mode(detection)
     roop.globals.no_face_action = index_of_no_face_action(no_face_action)
