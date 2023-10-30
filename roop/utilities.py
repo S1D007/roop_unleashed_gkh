@@ -71,7 +71,7 @@ def sort_rename_frames(path: str):
     for i in range(len(filenames)):
         of = os.path.join(path, filenames[i])
         newidx = i+1
-        new_filename = os.path.join(path, f"{newidx:04d}." + roop.globals.CFG.output_image_format)
+        new_filename = os.path.join(path, f"{newidx:06d}." + roop.globals.CFG.output_image_format)
         os.rename(of, new_filename)        
 
 
