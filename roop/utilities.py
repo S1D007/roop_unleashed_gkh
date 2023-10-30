@@ -12,6 +12,7 @@ import gradio
 import tempfile
 import cv2
 import zipfile
+import traceback
 
 from pathlib import Path
 from typing import List, Any
@@ -278,9 +279,9 @@ def open_folder(path:str):
         elif platform == 'wsl':
             subprocess.call('cmd.exe /C start'.split() + [path])
         else:                                   # linux variants
-            subprocess.call('xdg-open', path)
+            subprocess.Popen(['xdg-open', path])
     except Exception as e:
-        print(e)
+        traceback.print_exc()
         pass
         #import webbrowser
         #webbrowser.open(url)
