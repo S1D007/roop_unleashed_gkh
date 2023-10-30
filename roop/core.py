@@ -291,7 +291,7 @@ def batch_process(files:list[ProcessEntry], use_clip, new_clip_text, use_new_met
                     print("Resorting frames to create video")
                     util.sort_rename_frames(extract_path)                                    
                 
-                ffmpeg.create_video(v.filename, f.finalname, fps)
+                ffmpeg.create_video(v.filename, v.finalname, fps)
                 if not roop.globals.keep_frames:
                     util.delete_temp_frames(temp_frame_paths[0])
             else:
