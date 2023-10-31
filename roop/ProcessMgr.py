@@ -5,7 +5,7 @@ import psutil
 
 from roop.ProcessOptions import ProcessOptions
 
-from roop.face_util import get_first_face, get_all_faces, rotate_image_180
+from roop.face_util import get_first_face, get_all_faces, rotate_image_180, rotate_image_90, rotate_anticlockwise, rotate_clockwise
 from roop.utilities import compute_cosine_distance, get_device, str_to_class
 
 from typing import Any, List, Callable
@@ -260,19 +260,26 @@ class ProcessMgr():
         return None, frame
       
 
-
-
     def process_frame(self, frame:Frame):
+        use_original_frame = 0
+        retry_rotated_180 = 1
+        skip_frame = 2
+
         if len(self.input_face_datas) < 1:
             return frame
-    
         temp_frame = frame.copy()
         num_swapped, temp_frame = self.swap_faces(frame, temp_frame)
         if num_swapped > 0:
             return temp_frame
-        if roop.globals.no_face_action == 0:
+        if roop.globals.no_face_action == use_original_frame:
             return frame
-        if roop.globals.no_face_action == 2:
+        if roop.globals.no_face_action == skip_frame:
+            #This only works with in-mem processing, as it simply skips the frame.
+            #For 'extract frames' it simply leaves the unprocessed frame unprocessed and it gets used in the final output by ffmpeg.
+            #If we could delete that frame here, that'd work but that might fuck up ffmpeg, and I don't think we have the info on what frame it actually is?????
+            #alternatively, it could mark all the necessary frames for deletion, delete them at the end, then rename the remaining frames that might work?
+            #alternatively to that we just get this auto-rotation business working for in-mem processing, which would be ideal!
+            #fucking spaghetti code this is man... but even in all its noodleyness, boy is it good.
             return None
         else:
             copyframe = frame.copy()
@@ -285,16 +292,16 @@ class ProcessMgr():
             return temp_frame
 
 
-
     def swap_faces(self, frame, temp_frame):
         num_faces_found = 0
         if self.options.swap_mode == "first":
             face = get_first_face(frame)
+
             if face is None:
                 return num_faces_found, frame
+            
             num_faces_found += 1
             temp_frame = self.process_face(self.options.selected_index, face, temp_frame)
-
         else:
             faces = get_all_faces(frame)
             if faces is None:
@@ -332,7 +339,42 @@ class ProcessMgr():
         return num_faces_found, temp_frame
 
 
+    def auto_rotate_frame(self, original_face, frame:Frame):
+        print(f"detected face: {original_face}")
+        target_face = original_face
+        
+        bounding_box_width = original_face.bbox[2] - original_face.bbox[0]
+        bounding_box_height = original_face.bbox[3] - original_face.bbox[1]
+        horizontal_face = bounding_box_width > bounding_box_height
+
+        if horizontal_face:
+            print("face is horizontal, rotating frame anti-clockwise and getting face bounding box from rotated frame")
+            frame = rotate_anticlockwise(frame)
+            target_face = get_first_face(frame)
+        else:
+            print("face is vertical, leaving frame untouched")
+
+        #maybe this should just return the rotation angle used?
+        #that way if not zero, just rotate by the negated amount?
+        return original_face, target_face, frame
+
+    
+    def auto_unrotate_frame(self, original_face, frame:Frame):
+        bounding_box_width = original_face.bbox[2] - original_face.bbox[0]
+        bounding_box_height = original_face.bbox[3] - original_face.bbox[1]
+        horizontal_face = bounding_box_width > bounding_box_height
+
+        if horizontal_face:
+            print("face was horizontal, unrotating processed frame")
+            return rotate_clockwise(frame)
+        
+        print("face was vertical, leaving processed frame untouched")
+        return frame
+
+
     def process_face(self,face_index, target_face, frame:Frame):
+        original_face, target_face, frame = self.auto_rotate_frame(target_face, frame)
+
         enhanced_frame = None
         inputface = self.input_face_datas[face_index].faces[0]
 
@@ -355,7 +397,8 @@ class ProcessMgr():
             result = self.paste_upscale(fake_frame, fake_frame, target_face.matrix, frame, scale_factor, mask_offsets)
         else:
             result = self.paste_upscale(fake_frame, enhanced_frame, target_face.matrix, frame, scale_factor, mask_offsets)
-        return result
+
+        return self.auto_unrotate_frame(original_face, result)
 
         
 

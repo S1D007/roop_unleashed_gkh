@@ -19,3 +19,4 @@ tqdm==4.66.1
 ftfy
 regex
 pyvirtualcam
+imutils==0.5.4
