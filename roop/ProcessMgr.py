@@ -348,9 +348,18 @@ class ProcessMgr():
 
         if horizontal_face:
             print("face is horizontal, rotating frame anti-clockwise and getting face bounding box from rotated frame")
-            rotated_bbox = self.rotate_bbox_anticlockwise(original_face.bbox, frame)
-            frame = rotate_anticlockwise(frame)
-            target_face = self.get_rotated_target_face(rotated_bbox, frame)
+            # rotated_bbox = self.rotate_bbox_anticlockwise(original_face.bbox, frame)
+            print(f"original bbox: {original_face.bbox}")
+            rotated_bbox = self.rotate_bbox_clockwise(original_face.bbox, frame)
+            # rotated_frame = rotate_anticlockwise(frame)
+            rotated_frame = rotate_clockwise(frame)
+            target_face = self.get_rotated_target_face(rotated_bbox, rotated_frame)
+            if target_face is not None:
+                frame = rotated_frame
+            else:
+                #no face was detected in the rotated frame, so use the original frame and face
+                target_face = original_face
+            
             print()
         else:
             print("face is vertical, leaving frame untouched")
@@ -362,6 +371,10 @@ class ProcessMgr():
     
     def get_rotated_target_face(self, rotated_bbox, rotated_frame:Frame):
         rotated_faces = get_all_faces(rotated_frame)
+
+        if rotated_faces is None:
+            return None
+
         rotated_target_face = rotated_faces[0]
         best_iou = 0
 
@@ -371,7 +384,27 @@ class ProcessMgr():
                 rotated_target_face = rotated_face
                 best_iou = iou
             
+        print(f"closest matching face - iou: {best_iou}, bbox: {rotated_target_face.bbox}, rotated bbox: {rotated_bbox}")
         return rotated_target_face
+
+
+    def rotate_bbox_clockwise(self, bbox, frame:Frame):
+        (height, width) = frame.shape[:2]
+
+        start_x = bbox[0]
+        start_y = bbox[1]
+        end_x = bbox[2]
+        end_y = bbox[3]
+
+        #bottom left corner becomes top left corner
+        #top right corner becomes bottom right corner
+
+        rotated_start_x = height - end_y
+        rotated_start_y = start_x
+        rotated_end_x = height - start_y
+        rotated_end_y = end_x
+
+        return [rotated_start_x, rotated_start_y, rotated_end_x, rotated_end_y]
 
 
     def rotate_bbox_anticlockwise(self, bbox, frame:Frame):
@@ -423,7 +456,7 @@ class ProcessMgr():
 
         if horizontal_face:
             print("face was horizontal, unrotating processed frame")
-            return rotate_clockwise(frame)
+            return rotate_anticlockwise(frame)
         
         print("face was vertical, leaving processed frame untouched")
         return frame
