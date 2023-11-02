@@ -340,23 +340,80 @@ class ProcessMgr():
 
 
     def auto_rotate_frame(self, original_face, frame:Frame):
-        print(f"detected face: {original_face}")
         target_face = original_face
-        
+
         bounding_box_width = original_face.bbox[2] - original_face.bbox[0]
         bounding_box_height = original_face.bbox[3] - original_face.bbox[1]
         horizontal_face = bounding_box_width > bounding_box_height
 
         if horizontal_face:
             print("face is horizontal, rotating frame anti-clockwise and getting face bounding box from rotated frame")
+            rotated_bbox = self.rotate_bbox_anticlockwise(original_face.bbox, frame)
             frame = rotate_anticlockwise(frame)
-            target_face = get_first_face(frame)
+            target_face = self.get_rotated_target_face(rotated_bbox, frame)
+            print()
         else:
             print("face is vertical, leaving frame untouched")
 
         #maybe this should just return the rotation angle used?
         #that way if not zero, just rotate by the negated amount?
         return original_face, target_face, frame
+
+    
+    def get_rotated_target_face(self, rotated_bbox, rotated_frame:Frame):
+        rotated_faces = get_all_faces(rotated_frame)
+        rotated_target_face = rotated_faces[0]
+        best_iou = 0
+
+        for rotated_face in rotated_faces:
+            iou = self.intersection_over_union(rotated_bbox, rotated_face.bbox)
+            if iou > best_iou:
+                rotated_target_face = rotated_face
+                best_iou = iou
+            
+        return rotated_target_face
+
+
+    def rotate_bbox_anticlockwise(self, bbox, frame:Frame):
+        
+        (height, width) = frame.shape[:2]
+
+        start_x = bbox[0]
+        start_y = bbox[1]
+        end_x = bbox[2]
+        end_y = bbox[3]
+
+        # So the algorithm is 
+        # - top right corner translates to top left corner which gives start_x, start_y and is calculated as follows: (start_y, width - end_x)
+        # - bottom left corner translates to bottom right corner giving end_x, end_y and is calculated as follows:  (end_y, width - start_x)
+
+        rotated_start_x = start_y
+        rotated_start_y = width - end_x
+        rotated_end_x = end_y
+        rotated_end_y = width - start_x
+
+        return [rotated_start_x, rotated_start_y, rotated_end_x, rotated_end_y]
+
+
+    def intersection_over_union(self,boxA, boxB):
+        # https://pyimagesearch.com/2016/11/07/intersection-over-union-iou-for-object-detection/
+        # determine the (x, y)-coordinates of the intersection rectangle
+        xA = max(boxA[0], boxB[0])
+        yA = max(boxA[1], boxB[1])
+        xB = min(boxA[2], boxB[2])
+        yB = min(boxA[3], boxB[3])
+        # compute the area of intersection rectangle
+        interArea = max(0, xB - xA + 1) * max(0, yB - yA + 1)
+        # compute the area of both the prediction and ground-truth
+        # rectangles
+        boxAArea = (boxA[2] - boxA[0] + 1) * (boxA[3] - boxA[1] + 1)
+        boxBArea = (boxB[2] - boxB[0] + 1) * (boxB[3] - boxB[1] + 1)
+        # compute the intersection over union by taking the intersection
+        # area and dividing it by the sum of prediction + ground-truth
+        # areas - the interesection area
+        iou = interArea / float(boxAArea + boxBArea - interArea)
+        # return the intersection over union value
+        return iou
 
     
     def auto_unrotate_frame(self, original_face, frame:Frame):
