@@ -339,36 +339,68 @@ class ProcessMgr():
         return num_faces_found, temp_frame
 
 
-    def auto_rotate_frame(self, original_face, frame:Frame):
-        target_face = original_face
+    def rotation_action(self, original_face, frame:Frame):
+        (height, width) = frame.shape[:2]
 
         bounding_box_width = original_face.bbox[2] - original_face.bbox[0]
         bounding_box_height = original_face.bbox[3] - original_face.bbox[1]
         horizontal_face = bounding_box_width > bounding_box_height
 
+        center_x = width // 2.0
+        start_x = original_face.bbox[0]
+        end_x = original_face.bbox[2]
+
         if horizontal_face:
+            if start_x > center_x:
+                #this is someone lying down with their face in the right hand side of the frame
+                return "rotate_anticlockwise"
+            if end_x < center_x:
+                #this is someone lying down with their face in the left hand side of the frame
+                return "rotate_clockwise"
+
+        return "noop"
+
+
+    def auto_rotate_frame(self, original_face, frame:Frame):
+        target_face = original_face
+        original_frame = frame
+
+        rotation_action = self.rotation_action(original_face, frame)
+
+        if rotation_action == "rotate_anticlockwise":
             print("face is horizontal, rotating frame anti-clockwise and getting face bounding box from rotated frame")
-            # rotated_bbox = self.rotate_bbox_anticlockwise(original_face.bbox, frame)
-            print(f"original bbox: {original_face.bbox}")
+            rotated_bbox = self.rotate_bbox_anticlockwise(original_face.bbox, frame)
+            frame = rotate_anticlockwise(frame)
+            target_face = self.get_rotated_target_face(rotated_bbox, frame)
+        elif rotation_action == "rotate_clockwise":
+            print("face is horizontal, rotating frame clockwise and getting face bounding box from rotated frame")
             rotated_bbox = self.rotate_bbox_clockwise(original_face.bbox, frame)
-            # rotated_frame = rotate_anticlockwise(frame)
-            rotated_frame = rotate_clockwise(frame)
-            target_face = self.get_rotated_target_face(rotated_bbox, rotated_frame)
-            if target_face is not None:
-                frame = rotated_frame
-            else:
-                #no face was detected in the rotated frame, so use the original frame and face
-                target_face = original_face
-            
-            print()
+            frame = rotate_clockwise(frame)
+            target_face = self.get_rotated_target_face(rotated_bbox, frame)
         else:
             print("face is vertical, leaving frame untouched")
 
-        #maybe this should just return the rotation angle used?
-        #that way if not zero, just rotate by the negated amount?
-        return original_face, target_face, frame
+        if target_face is None:
+            #no face was detected in the rotated frame, so use the original frame and face
+            target_face = original_face
+            frame = original_frame
+            rotation_action = "noop"
 
-    
+        return target_face, frame, rotation_action
+
+
+    def auto_unrotate_frame(self, frame:Frame, rotation_action):
+        if rotation_action == "rotate_anticlockwise":
+            print("frame was rotated anti-clockwise, rotating processed frame clockwise")
+            return rotate_clockwise(frame)
+        elif rotation_action == "rotate_clockwise":
+            print("frame was rotated clockwise, rotating processed frame anti-clockwise")
+            return rotate_anticlockwise(frame)
+        
+        print("face was vertical, leaving processed frame untouched")
+        return frame
+
+
     def get_rotated_target_face(self, rotated_bbox, rotated_frame:Frame):
         rotated_faces = get_all_faces(rotated_frame)
 
@@ -448,22 +480,9 @@ class ProcessMgr():
         # return the intersection over union value
         return iou
 
-    
-    def auto_unrotate_frame(self, original_face, frame:Frame):
-        bounding_box_width = original_face.bbox[2] - original_face.bbox[0]
-        bounding_box_height = original_face.bbox[3] - original_face.bbox[1]
-        horizontal_face = bounding_box_width > bounding_box_height
-
-        if horizontal_face:
-            print("face was horizontal, unrotating processed frame")
-            return rotate_anticlockwise(frame)
-        
-        print("face was vertical, leaving processed frame untouched")
-        return frame
-
 
     def process_face(self,face_index, target_face, frame:Frame):
-        original_face, target_face, frame = self.auto_rotate_frame(target_face, frame)
+        target_face, frame, rotation_action = self.auto_rotate_frame(target_face, frame)
 
         enhanced_frame = None
         inputface = self.input_face_datas[face_index].faces[0]
@@ -488,7 +507,7 @@ class ProcessMgr():
         else:
             result = self.paste_upscale(fake_frame, enhanced_frame, target_face.matrix, frame, scale_factor, mask_offsets)
 
-        return self.auto_unrotate_frame(original_face, result)
+        return self.auto_unrotate_frame(result, rotation_action)
 
         
 
