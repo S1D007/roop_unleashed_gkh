@@ -294,6 +294,7 @@ class ProcessMgr():
 
     def swap_faces(self, frame, temp_frame):
         num_faces_found = 0
+
         if self.options.swap_mode == "first":
             face = get_first_face(frame)
 
@@ -306,6 +307,13 @@ class ProcessMgr():
             faces = get_all_faces(frame)
             if faces is None:
                 return num_faces_found, frame
+
+            if self.options.swap_mode == "single_face_frames_only":
+                if len(faces) == 1:
+                    num_faces_found += 1
+                    temp_frame = self.process_face(self.options.selected_index, faces[0], temp_frame)
+                else:
+                    return num_faces_found, frame
             
             if self.options.swap_mode == "all":
                 for face in faces:

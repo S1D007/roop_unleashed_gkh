@@ -80,7 +80,7 @@ def faceswap_tab():
     
         with gr.Row(variant='panel'):
             with gr.Column(scale=1):
-                selected_face_detection = gr.Dropdown(["First found", "All faces", "Selected face", "All female", "All male"], value="First found", label="Select face selection for swapping")
+                selected_face_detection = gr.Dropdown(["First found", "Single face frames only", "All faces", "Selected face", "All female", "All male"], value="First found", label="Select face selection for swapping")
                 max_face_distance = gr.Slider(0.01, 1.0, value=0.65, label="Max Face Similarity Threshold")
                 video_swapping_method = gr.Dropdown(["Extract Frames to media","In-Memory processing"], value="In-Memory processing", label="Select video processing method", interactive=True)
                 no_face_action = gr.Dropdown(choices=no_face_choices, value=no_face_choices[0], label="Action on no face detected", interactive=True)
@@ -453,6 +453,8 @@ def translate_swap_mode(dropdown_text):
         return "selected"
     elif dropdown_text == "First found":
         return "first"
+    elif dropdown_text == "Single face frames only":
+        return "single_face_frames_only"
     elif dropdown_text == "All female":
         return "all_female"
     elif dropdown_text == "All male":
