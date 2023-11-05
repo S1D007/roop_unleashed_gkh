@@ -311,7 +311,34 @@ class ProcessMgr():
             if self.options.swap_mode == "single_face_frames_only":
                 if len(faces) == 1:
                     num_faces_found += 1
-                    temp_frame = self.process_face(self.options.selected_index, faces[0], temp_frame)
+                    target_face = faces[0]
+                    
+                    temp_frame = self.process_face(self.options.selected_index, target_face, temp_frame)
+                    
+                    input_face = self.input_face_datas[self.options.selected_index].faces[0]
+                    rotation_action = self.rotation_action(target_face, frame)
+                    swapped_face = None
+                    optimal_frame = temp_frame.copy()
+                    
+                    # before we try and get the swapped face again, we need to make sure we're getting it from the most optimal version of the frame
+                    # otherwise it sometimes doesn't detect it, so if it needs to be rotated, then do that first.
+                    if rotation_action == "rotate_clockwise":
+                        optimal_frame = rotate_clockwise(optimal_frame)
+                    elif rotation_action == "rotate_anticlockwise":
+                        optimal_frame = rotate_anticlockwise(optimal_frame)
+                    
+                    swapped_face = get_first_face(optimal_frame)
+
+                    if swapped_face is None:
+                        num_faces_found = 0
+                        return num_faces_found, frame
+                    else:
+                        # check if the face matches closely the face we intended to swap it too
+                        # if it doesn't, it's probably insightface failing and returning some garbled mess, so skip it
+                        cosine_distance = compute_cosine_distance(swapped_face.embedding, input_face.embedding)
+                        if cosine_distance >= self.options.face_distance_threshold:
+                            num_faces_found = 0
+                            return num_faces_found, frame
                 else:
                     return num_faces_found, frame
             
@@ -358,6 +385,12 @@ class ProcessMgr():
         start_x = original_face.bbox[0]
         end_x = original_face.bbox[2]
         bbox_center_x = start_x + (bounding_box_width // 2.0)
+
+        # need to leverage the array of landmarks as decribed here:
+        # https://github.com/deepinsight/insightface/tree/master/alignment/coordinate_reg
+        # basically, we should be able to check for the relative position of eyes and nose
+        # then use that to determine which way the face is actually facing when in a horizontal position
+        # and use that to determine the correct rotation_action
 
         if horizontal_face:
             if bbox_center_x >= center_x:

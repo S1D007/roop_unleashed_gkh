@@ -93,7 +93,7 @@ def faceswap_tab():
                     roop.globals.wait_after_extraction = gr.Checkbox(label="Wait for user key press before creating video ", value=False)
             with gr.Column(scale=1):
                 chk_useclip = gr.Checkbox(label="Use Text Masking", value=False)
-                clip_text = gr.Textbox(label="List of objects to mask and restore back on fake image", value="hand,penis" ,elem_id='tooltip')
+                clip_text = gr.Textbox(label="List of objects to mask and restore back on fake image", value="hand,penis,penis hole,tongue" ,elem_id='tooltip')
                 gr.Dropdown(["Clip2Seg"], value="Clip2Seg", label="Engine")
                 bt_preview_mask = gr.Button("👥 Show Mask Preview", variant='secondary')
                     
