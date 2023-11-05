@@ -349,12 +349,13 @@ class ProcessMgr():
         center_x = width // 2.0
         start_x = original_face.bbox[0]
         end_x = original_face.bbox[2]
+        bbox_center_x = start_x + (bounding_box_width // 2.0)
 
         if horizontal_face:
-            if start_x > center_x:
+            if bbox_center_x >= center_x:
                 #this is someone lying down with their face in the right hand side of the frame
                 return "rotate_anticlockwise"
-            if end_x < center_x:
+            if bbox_center_x < center_x:
                 #this is someone lying down with their face in the left hand side of the frame
                 return "rotate_clockwise"
 
@@ -404,7 +405,7 @@ class ProcessMgr():
     def get_rotated_target_face(self, rotated_bbox, rotated_frame:Frame):
         rotated_faces = get_all_faces(rotated_frame)
 
-        if rotated_faces is None:
+        if not rotated_faces:
             return None
 
         rotated_target_face = rotated_faces[0]
