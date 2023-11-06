@@ -392,12 +392,23 @@ class ProcessMgr():
         # then use that to determine which way the face is actually facing when in a horizontal position
         # and use that to determine the correct rotation_action
 
+        # print(original_face.landmark_2d_106)
+
+        forehead_x = original_face.landmark_2d_106[72][0]
+        chin_x = original_face.landmark_2d_106[0][0]
+
         if horizontal_face:
+            if chin_x < forehead_x:
+                # this is someone lying down with their face like this (:
+                return "rotate_anticlockwise"
+            elif forehead_x < chin_x:
+                # this is someone lying down with their face like this :)
+                return "rotate_clockwise"
             if bbox_center_x >= center_x:
-                #this is someone lying down with their face in the right hand side of the frame
+                # this is someone lying down with their face in the right hand side of the frame
                 return "rotate_anticlockwise"
             if bbox_center_x < center_x:
-                #this is someone lying down with their face in the left hand side of the frame
+                # this is someone lying down with their face in the left hand side of the frame
                 return "rotate_clockwise"
 
         return "noop"
@@ -433,13 +444,10 @@ class ProcessMgr():
 
     def auto_unrotate_frame(self, frame:Frame, rotation_action):
         if rotation_action == "rotate_anticlockwise":
-            print("frame was rotated anti-clockwise, rotating processed frame clockwise")
             return rotate_clockwise(frame)
         elif rotation_action == "rotate_clockwise":
-            print("frame was rotated clockwise, rotating processed frame anti-clockwise")
             return rotate_anticlockwise(frame)
         
-        print("face was vertical, leaving processed frame untouched")
         return frame
 
 
@@ -458,7 +466,6 @@ class ProcessMgr():
                 rotated_target_face = rotated_face
                 best_iou = iou
             
-        print(f"closest matching face - iou: {best_iou}, bbox: {rotated_target_face.bbox}, rotated bbox: {rotated_bbox}")
         return rotated_target_face
 
 
