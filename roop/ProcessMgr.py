@@ -281,10 +281,8 @@ class ProcessMgr():
         if roop.globals.no_face_action == skip_frame:
             #This only works with in-mem processing, as it simply skips the frame.
             #For 'extract frames' it simply leaves the unprocessed frame unprocessed and it gets used in the final output by ffmpeg.
-            #If we could delete that frame here, that'd work but that might fuck up ffmpeg, and I don't think we have the info on what frame it actually is?????
+            #If we could delete that frame here, that'd work but that might cause ffmpeg to fail unless the frames are renamed, and I don't think we have the info on what frame it actually is?????
             #alternatively, it could mark all the necessary frames for deletion, delete them at the end, then rename the remaining frames that might work?
-            #alternatively to that we just get this auto-rotation business working for in-mem processing, which would be ideal!
-            #fucking spaghetti code this is man... but even in all its noodleyness, boy is it good.
             return None
         else:
             copyframe = frame.copy()
@@ -397,8 +395,6 @@ class ProcessMgr():
         # then use that to determine which way the face is actually facing when in a horizontal position
         # and use that to determine the correct rotation_action
 
-        # print(original_face.landmark_2d_106)
-
         forehead_x = original_face.landmark_2d_106[72][0]
         chin_x = original_face.landmark_2d_106[0][0]
 
@@ -426,17 +422,17 @@ class ProcessMgr():
         rotation_action = self.rotation_action(original_face, frame)
 
         if rotation_action == "rotate_anticlockwise":
-            print("face is horizontal, rotating frame anti-clockwise and getting face bounding box from rotated frame")
+            #print("face is horizontal, rotating frame anti-clockwise and getting face bounding box from rotated frame")
             rotated_bbox = self.rotate_bbox_anticlockwise(original_face.bbox, frame)
             frame = rotate_anticlockwise(frame)
             target_face = self.get_rotated_target_face(rotated_bbox, frame)
         elif rotation_action == "rotate_clockwise":
-            print("face is horizontal, rotating frame clockwise and getting face bounding box from rotated frame")
+            #print("face is horizontal, rotating frame clockwise and getting face bounding box from rotated frame")
             rotated_bbox = self.rotate_bbox_clockwise(original_face.bbox, frame)
             frame = rotate_clockwise(frame)
             target_face = self.get_rotated_target_face(rotated_bbox, frame)
         else:
-            print("face is vertical, leaving frame untouched")
+            #print("face is vertical, leaving frame untouched")
 
         if target_face is None:
             #no face was detected in the rotated frame, so use the original frame and face

@@ -80,20 +80,20 @@ def faceswap_tab():
     
         with gr.Row(variant='panel'):
             with gr.Column(scale=1):
-                selected_face_detection = gr.Dropdown(["First found", "Single face frames only", "All faces", "Selected face", "All female", "All male"], value="Single face frames only", label="Select face selection for swapping")
+                selected_face_detection = gr.Dropdown(["First found", "Single face frames only [auto-rotate]", "All faces", "Selected face", "All female", "All male"], value="First found", label="Select face selection for swapping")
                 max_face_distance = gr.Slider(0.01, 1.0, value=0.65, label="Max Face Similarity Threshold")
                 video_swapping_method = gr.Dropdown(["Extract Frames to media","In-Memory processing"], value="In-Memory processing", label="Select video processing method", interactive=True)
-                no_face_action = gr.Dropdown(choices=no_face_choices, value=no_face_choices[2], label="Action on no face detected", interactive=True)
+                no_face_action = gr.Dropdown(choices=no_face_choices, value=no_face_choices[0], label="Action on no face detected", interactive=True)
             with gr.Column(scale=1):
-                ui.globals.ui_selected_enhancer = gr.Dropdown(["None", "Codeformer", "DMDNet", "GFPGAN", "GPEN"], value="GPEN", label="Select post-processing")
-                ui.globals.ui_blend_ratio = gr.Slider(0.0, 1.0, value=0.7, label="Original/Enhanced image blend ratio")
+                ui.globals.ui_selected_enhancer = gr.Dropdown(["None", "Codeformer", "DMDNet", "GFPGAN", "GPEN"], value="None", label="Select post-processing")
+                ui.globals.ui_blend_ratio = gr.Slider(0.0, 1.0, value=0.65, label="Original/Enhanced image blend ratio")
                 with gr.Box():
                     roop.globals.skip_audio = gr.Checkbox(label="Skip audio", value=False)
                     roop.globals.keep_frames = gr.Checkbox(label="Keep Frames (relevant only when extracting frames)", value=False)
                     roop.globals.wait_after_extraction = gr.Checkbox(label="Wait for user key press before creating video ", value=False)
             with gr.Column(scale=1):
                 chk_useclip = gr.Checkbox(label="Use Text Masking", value=False)
-                clip_text = gr.Textbox(label="List of objects to mask and restore back on fake image", value="hand,penis,penis hole,tongue" ,elem_id='tooltip')
+                clip_text = gr.Textbox(label="List of objects to mask and restore back on fake image", value="cup,hands,hair,banana" ,elem_id='tooltip')
                 gr.Dropdown(["Clip2Seg"], value="Clip2Seg", label="Engine")
                 bt_preview_mask = gr.Button("👥 Show Mask Preview", variant='secondary')
                     
@@ -453,7 +453,7 @@ def translate_swap_mode(dropdown_text):
         return "selected"
     elif dropdown_text == "First found":
         return "first"
-    elif dropdown_text == "Single face frames only":
+    elif dropdown_text == "Single face frames only [auto-rotate]":
         return "single_face_frames_only"
     elif dropdown_text == "All female":
         return "all_female"
