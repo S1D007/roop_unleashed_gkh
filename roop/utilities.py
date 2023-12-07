@@ -265,8 +265,8 @@ def unzip(zipfilename:str, target_path:str):
 
 
 def mkdir_with_umask(directory):
-    oldmask = os.umask(000)
-    os.makedirs(directory, mode=777, exist_ok=True)
+    oldmask = os.umask(0)
+    os.makedirs(directory, mode=0o775, exist_ok=True)
     os.umask(oldmask)
 
 def open_folder(path:str):

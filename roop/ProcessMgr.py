@@ -259,6 +259,11 @@ class ProcessMgr():
             return faces, frame
         return None, frame
       
+# https://github.com/deepinsight/insightface#third-party-re-implementation-of-arcface
+# https://github.com/deepinsight/insightface/blob/master/alignment/coordinate_reg/image_infer.py
+# https://github.com/deepinsight/insightface/issues/1350
+# https://github.com/linghu8812/tensorrt_inference
+
 
     def process_frame(self, frame:Frame):
         use_original_frame = 0
