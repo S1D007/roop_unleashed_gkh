@@ -422,17 +422,15 @@ class ProcessMgr():
         rotation_action = self.rotation_action(original_face, frame)
 
         if rotation_action == "rotate_anticlockwise":
-            #print("face is horizontal, rotating frame anti-clockwise and getting face bounding box from rotated frame")
+            #face is horizontal, rotating frame anti-clockwise and getting face bounding box from rotated frame
             rotated_bbox = self.rotate_bbox_anticlockwise(original_face.bbox, frame)
             frame = rotate_anticlockwise(frame)
             target_face = self.get_rotated_target_face(rotated_bbox, frame)
         elif rotation_action == "rotate_clockwise":
-            #print("face is horizontal, rotating frame clockwise and getting face bounding box from rotated frame")
+            #face is horizontal, rotating frame clockwise and getting face bounding box from rotated frame
             rotated_bbox = self.rotate_bbox_clockwise(original_face.bbox, frame)
             frame = rotate_clockwise(frame)
             target_face = self.get_rotated_target_face(rotated_bbox, frame)
-        else:
-            #print("face is vertical, leaving frame untouched")
 
         if target_face is None:
             #no face was detected in the rotated frame, so use the original frame and face
