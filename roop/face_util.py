@@ -5,6 +5,7 @@ import insightface
 import roop.globals
 from roop.typing import Frame, Face
 
+import imutils
 import cv2
 import numpy as np
 from skimage import transform as trans
@@ -187,7 +188,16 @@ def rotate_image_90(image, rotate=True):
         return np.rot90(image)
     else:
         return np.rot90(image,1,(1,0))
-    
+
+
+def rotate_anticlockwise(frame):
+    return imutils.rotate_bound(frame, -90)
+
+
+def rotate_clockwise(frame):
+    return imutils.rotate_bound(frame, 90)
+
+
 def rotate_image_180(image):
     return np.flip(image,0)
 

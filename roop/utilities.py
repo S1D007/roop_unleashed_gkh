@@ -12,6 +12,7 @@ import gradio
 import tempfile
 import cv2
 import zipfile
+import traceback
 
 from pathlib import Path
 from typing import List, Any
@@ -70,7 +71,7 @@ def sort_rename_frames(path: str):
     for i in range(len(filenames)):
         of = os.path.join(path, filenames[i])
         newidx = i+1
-        new_filename = os.path.join(path, f"{newidx:04d}." + roop.globals.CFG.output_image_format)
+        new_filename = os.path.join(path, f"{newidx:06d}." + roop.globals.CFG.output_image_format)
         os.rename(of, new_filename)        
 
 
@@ -264,8 +265,8 @@ def unzip(zipfilename:str, target_path:str):
 
 
 def mkdir_with_umask(directory):
-    oldmask = os.umask(000)
-    os.makedirs(directory, mode=777, exist_ok=True)
+    oldmask = os.umask(0)
+    os.makedirs(directory, mode=0o775, exist_ok=True)
     os.umask(oldmask)
 
 def open_folder(path:str):
@@ -278,9 +279,9 @@ def open_folder(path:str):
         elif platform == 'wsl':
             subprocess.call('cmd.exe /C start'.split() + [path])
         else:                                   # linux variants
-            subprocess.call('xdg-open', path)
+            subprocess.Popen(['xdg-open', path])
     except Exception as e:
-        print(e)
+        traceback.print_exc()
         pass
         #import webbrowser
         #webbrowser.open(url)

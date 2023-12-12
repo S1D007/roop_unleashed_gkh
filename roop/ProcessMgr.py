@@ -5,7 +5,7 @@ import psutil
 
 from roop.ProcessOptions import ProcessOptions
 
-from roop.face_util import get_first_face, get_all_faces, rotate_image_180
+from roop.face_util import get_first_face, get_all_faces, rotate_image_180, rotate_image_90, rotate_anticlockwise, rotate_clockwise
 from roop.utilities import compute_cosine_distance, get_device, str_to_class
 
 from typing import Any, List, Callable
@@ -259,20 +259,30 @@ class ProcessMgr():
             return faces, frame
         return None, frame
       
-
+# https://github.com/deepinsight/insightface#third-party-re-implementation-of-arcface
+# https://github.com/deepinsight/insightface/blob/master/alignment/coordinate_reg/image_infer.py
+# https://github.com/deepinsight/insightface/issues/1350
+# https://github.com/linghu8812/tensorrt_inference
 
 
     def process_frame(self, frame:Frame):
+        use_original_frame = 0
+        retry_rotated_180 = 1
+        skip_frame = 2
+
         if len(self.input_face_datas) < 1:
             return frame
-    
         temp_frame = frame.copy()
         num_swapped, temp_frame = self.swap_faces(frame, temp_frame)
         if num_swapped > 0:
             return temp_frame
-        if roop.globals.no_face_action == 0:
+        if roop.globals.no_face_action == use_original_frame:
             return frame
-        if roop.globals.no_face_action == 2:
+        if roop.globals.no_face_action == skip_frame:
+            #This only works with in-mem processing, as it simply skips the frame.
+            #For 'extract frames' it simply leaves the unprocessed frame unprocessed and it gets used in the final output by ffmpeg.
+            #If we could delete that frame here, that'd work but that might cause ffmpeg to fail unless the frames are renamed, and I don't think we have the info on what frame it actually is?????
+            #alternatively, it could mark all the necessary frames for deletion, delete them at the end, then rename the remaining frames that might work?
             return None
         else:
             copyframe = frame.copy()
@@ -285,20 +295,55 @@ class ProcessMgr():
             return temp_frame
 
 
-
     def swap_faces(self, frame, temp_frame):
         num_faces_found = 0
+
         if self.options.swap_mode == "first":
             face = get_first_face(frame)
+
             if face is None:
                 return num_faces_found, frame
+            
             num_faces_found += 1
             temp_frame = self.process_face(self.options.selected_index, face, temp_frame)
-
         else:
             faces = get_all_faces(frame)
             if faces is None:
                 return num_faces_found, frame
+
+            if self.options.swap_mode == "single_face_frames_only":
+                if len(faces) == 1:
+                    num_faces_found += 1
+                    target_face = faces[0]
+                    
+                    temp_frame = self.process_face(self.options.selected_index, target_face, temp_frame)
+                    
+                    input_face = self.input_face_datas[self.options.selected_index].faces[0]
+                    rotation_action = self.rotation_action(target_face, frame)
+                    swapped_face = None
+                    optimal_frame = temp_frame.copy()
+                    
+                    # before we try and get the swapped face again, we need to make sure we're getting it from the most optimal version of the frame
+                    # otherwise it sometimes doesn't detect it, so if it needs to be rotated, then do that first.
+                    if rotation_action == "rotate_clockwise":
+                        optimal_frame = rotate_clockwise(optimal_frame)
+                    elif rotation_action == "rotate_anticlockwise":
+                        optimal_frame = rotate_anticlockwise(optimal_frame)
+                    
+                    swapped_face = get_first_face(optimal_frame)
+
+                    if swapped_face is None:
+                        num_faces_found = 0
+                        return num_faces_found, frame
+                    else:
+                        # check if the face matches closely the face we intended to swap it too
+                        # if it doesn't, it's probably insightface failing and returning some garbled mess, so skip it
+                        cosine_distance = compute_cosine_distance(swapped_face.embedding, input_face.embedding)
+                        if cosine_distance >= self.options.face_distance_threshold:
+                            num_faces_found = 0
+                            return num_faces_found, frame
+                else:
+                    return num_faces_found, frame
             
             if self.options.swap_mode == "all":
                 for face in faces:
@@ -332,7 +377,161 @@ class ProcessMgr():
         return num_faces_found, temp_frame
 
 
+    def rotation_action(self, original_face, frame:Frame):
+        (height, width) = frame.shape[:2]
+
+        bounding_box_width = original_face.bbox[2] - original_face.bbox[0]
+        bounding_box_height = original_face.bbox[3] - original_face.bbox[1]
+        horizontal_face = bounding_box_width > bounding_box_height
+
+        center_x = width // 2.0
+        start_x = original_face.bbox[0]
+        end_x = original_face.bbox[2]
+        bbox_center_x = start_x + (bounding_box_width // 2.0)
+
+        # need to leverage the array of landmarks as decribed here:
+        # https://github.com/deepinsight/insightface/tree/master/alignment/coordinate_reg
+        # basically, we should be able to check for the relative position of eyes and nose
+        # then use that to determine which way the face is actually facing when in a horizontal position
+        # and use that to determine the correct rotation_action
+
+        forehead_x = original_face.landmark_2d_106[72][0]
+        chin_x = original_face.landmark_2d_106[0][0]
+
+        if horizontal_face:
+            if chin_x < forehead_x:
+                # this is someone lying down with their face like this (:
+                return "rotate_anticlockwise"
+            elif forehead_x < chin_x:
+                # this is someone lying down with their face like this :)
+                return "rotate_clockwise"
+            if bbox_center_x >= center_x:
+                # this is someone lying down with their face in the right hand side of the frame
+                return "rotate_anticlockwise"
+            if bbox_center_x < center_x:
+                # this is someone lying down with their face in the left hand side of the frame
+                return "rotate_clockwise"
+
+        return "noop"
+
+
+    def auto_rotate_frame(self, original_face, frame:Frame):
+        target_face = original_face
+        original_frame = frame
+
+        rotation_action = self.rotation_action(original_face, frame)
+
+        if rotation_action == "rotate_anticlockwise":
+            #face is horizontal, rotating frame anti-clockwise and getting face bounding box from rotated frame
+            rotated_bbox = self.rotate_bbox_anticlockwise(original_face.bbox, frame)
+            frame = rotate_anticlockwise(frame)
+            target_face = self.get_rotated_target_face(rotated_bbox, frame)
+        elif rotation_action == "rotate_clockwise":
+            #face is horizontal, rotating frame clockwise and getting face bounding box from rotated frame
+            rotated_bbox = self.rotate_bbox_clockwise(original_face.bbox, frame)
+            frame = rotate_clockwise(frame)
+            target_face = self.get_rotated_target_face(rotated_bbox, frame)
+
+        if target_face is None:
+            #no face was detected in the rotated frame, so use the original frame and face
+            target_face = original_face
+            frame = original_frame
+            rotation_action = "noop"
+
+        return target_face, frame, rotation_action
+
+
+    def auto_unrotate_frame(self, frame:Frame, rotation_action):
+        if rotation_action == "rotate_anticlockwise":
+            return rotate_clockwise(frame)
+        elif rotation_action == "rotate_clockwise":
+            return rotate_anticlockwise(frame)
+        
+        return frame
+
+
+    def get_rotated_target_face(self, rotated_bbox, rotated_frame:Frame):
+        rotated_faces = get_all_faces(rotated_frame)
+
+        if not rotated_faces:
+            return None
+
+        rotated_target_face = rotated_faces[0]
+        best_iou = 0
+
+        for rotated_face in rotated_faces:
+            iou = self.intersection_over_union(rotated_bbox, rotated_face.bbox)
+            if iou > best_iou:
+                rotated_target_face = rotated_face
+                best_iou = iou
+            
+        return rotated_target_face
+
+
+    def rotate_bbox_clockwise(self, bbox, frame:Frame):
+        (height, width) = frame.shape[:2]
+
+        start_x = bbox[0]
+        start_y = bbox[1]
+        end_x = bbox[2]
+        end_y = bbox[3]
+
+        #bottom left corner becomes top left corner
+        #top right corner becomes bottom right corner
+
+        rotated_start_x = height - end_y
+        rotated_start_y = start_x
+        rotated_end_x = height - start_y
+        rotated_end_y = end_x
+
+        return [rotated_start_x, rotated_start_y, rotated_end_x, rotated_end_y]
+
+
+    def rotate_bbox_anticlockwise(self, bbox, frame:Frame):
+        
+        (height, width) = frame.shape[:2]
+
+        start_x = bbox[0]
+        start_y = bbox[1]
+        end_x = bbox[2]
+        end_y = bbox[3]
+
+        # So the algorithm is 
+        # - top right corner translates to top left corner which gives start_x, start_y and is calculated as follows: (start_y, width - end_x)
+        # - bottom left corner translates to bottom right corner giving end_x, end_y and is calculated as follows:  (end_y, width - start_x)
+
+        rotated_start_x = start_y
+        rotated_start_y = width - end_x
+        rotated_end_x = end_y
+        rotated_end_y = width - start_x
+
+        return [rotated_start_x, rotated_start_y, rotated_end_x, rotated_end_y]
+
+
+    def intersection_over_union(self,boxA, boxB):
+        # https://pyimagesearch.com/2016/11/07/intersection-over-union-iou-for-object-detection/
+        # determine the (x, y)-coordinates of the intersection rectangle
+        xA = max(boxA[0], boxB[0])
+        yA = max(boxA[1], boxB[1])
+        xB = min(boxA[2], boxB[2])
+        yB = min(boxA[3], boxB[3])
+        # compute the area of intersection rectangle
+        interArea = max(0, xB - xA + 1) * max(0, yB - yA + 1)
+        # compute the area of both the prediction and ground-truth
+        # rectangles
+        boxAArea = (boxA[2] - boxA[0] + 1) * (boxA[3] - boxA[1] + 1)
+        boxBArea = (boxB[2] - boxB[0] + 1) * (boxB[3] - boxB[1] + 1)
+        # compute the intersection over union by taking the intersection
+        # area and dividing it by the sum of prediction + ground-truth
+        # areas - the interesection area
+        iou = interArea / float(boxAArea + boxBArea - interArea)
+        # return the intersection over union value
+        return iou
+
+
     def process_face(self,face_index, target_face, frame:Frame):
+        target_face, frame, rotation_action = self.auto_rotate_frame(target_face, frame)
+
         enhanced_frame = None
         inputface = self.input_face_datas[face_index].faces[0]
 
@@ -355,7 +554,8 @@ class ProcessMgr():
             result = self.paste_upscale(fake_frame, fake_frame, target_face.matrix, frame, scale_factor, mask_offsets)
         else:
             result = self.paste_upscale(fake_frame, enhanced_frame, target_face.matrix, frame, scale_factor, mask_offsets)
-        return result
+
+        return self.auto_unrotate_frame(result, rotation_action)
 
         
 
