@@ -266,6 +266,7 @@ def unzip(zipfilename:str, target_path:str):
 
 def mkdir_with_umask(directory):
     oldmask = os.umask(0)
+    # mode needs octal
     os.makedirs(directory, mode=0o775, exist_ok=True)
     os.umask(oldmask)
 

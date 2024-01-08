@@ -80,14 +80,16 @@ def faceswap_tab():
     
         with gr.Row(variant='panel'):
             with gr.Column(scale=1):
-                selected_face_detection = gr.Dropdown(["First found", "Single face frames only [auto-rotate]", "All faces", "Selected face", "All female", "All male"], value="First found", label="Select face selection for swapping")
+                selected_face_detection = gr.Dropdown(["First found", "All faces", "Selected face", "All female", "All male"], value="First found", label="Select face selection for swapping")
                 max_face_distance = gr.Slider(0.01, 1.0, value=0.65, label="Max Face Similarity Threshold")
                 video_swapping_method = gr.Dropdown(["Extract Frames to media","In-Memory processing"], value="In-Memory processing", label="Select video processing method", interactive=True)
                 no_face_action = gr.Dropdown(choices=no_face_choices, value=no_face_choices[0], label="Action on no face detected", interactive=True)
+                vr_mode = gr.Checkbox(label="VR Mode", value=False)
             with gr.Column(scale=1):
-                ui.globals.ui_selected_enhancer = gr.Dropdown(["None", "Codeformer", "DMDNet", "GFPGAN", "GPEN"], value="None", label="Select post-processing")
+                ui.globals.ui_selected_enhancer = gr.Dropdown(["None", "Codeformer", "DMDNet", "GFPGAN", "GPEN", "Restoreformer"], value="None", label="Select post-processing")
                 ui.globals.ui_blend_ratio = gr.Slider(0.0, 1.0, value=0.65, label="Original/Enhanced image blend ratio")
                 with gr.Box():
+                    autorotate = gr.Checkbox(label="Auto rotate horizontal Faces", value=True)
                     roop.globals.skip_audio = gr.Checkbox(label="Skip audio", value=False)
                     roop.globals.keep_frames = gr.Checkbox(label="Keep Frames (relevant only when extracting frames)", value=False)
                     roop.globals.wait_after_extraction = gr.Checkbox(label="Wait for user key press before creating video ", value=False)
@@ -113,7 +115,7 @@ def faceswap_tab():
                 resultvideo = gr.Video(label='Final Video', interactive=False, visible=False)
 
     previewinputs = [preview_frame_num, bt_destfiles, fake_preview, ui.globals.ui_selected_enhancer, selected_face_detection,
-                        max_face_distance, ui.globals.ui_blend_ratio, chk_useclip, clip_text, no_face_action] 
+                        max_face_distance, ui.globals.ui_blend_ratio, chk_useclip, clip_text, no_face_action, vr_mode, autorotate] 
     input_faces.select(on_select_input_face, None, None).then(fn=on_preview_frame_changed, inputs=previewinputs, outputs=[previewimage, mask_top, mask_bottom])
     bt_remove_selected_input_face.click(fn=remove_selected_input_face, outputs=[input_faces])
     bt_srcfiles.change(fn=on_srcfile_changed, show_progress='full', inputs=bt_srcfiles, outputs=[dynamic_face_selection, face_selection, input_faces])
@@ -143,7 +145,7 @@ def faceswap_tab():
 
     start_event = bt_start.click(fn=start_swap, 
         inputs=[ui.globals.ui_selected_enhancer, selected_face_detection, roop.globals.keep_frames, roop.globals.wait_after_extraction,
-                    roop.globals.skip_audio, max_face_distance, ui.globals.ui_blend_ratio, chk_useclip, clip_text,video_swapping_method, no_face_action],
+                    roop.globals.skip_audio, max_face_distance, ui.globals.ui_blend_ratio, chk_useclip, clip_text,video_swapping_method, no_face_action, vr_mode, autorotate],
         outputs=[bt_start, resultfiles])
     after_swap_event = start_event.then(fn=on_resultfiles_finished, inputs=[resultfiles], outputs=[resultimage, resultvideo])
     
@@ -349,7 +351,7 @@ def on_end_face_selection():
     return gr.Column.update(visible=False), None
 
 
-def on_preview_frame_changed(frame_num, files, fake_preview, enhancer, detection, face_distance, blend_ratio, use_clip, clip_text, no_face_action):
+def on_preview_frame_changed(frame_num, files, fake_preview, enhancer, detection, face_distance, blend_ratio, use_clip, clip_text, no_face_action, vr_mode, auto_rotate):
     global SELECTED_INPUT_FACE_INDEX, is_processing
 
     from roop.core import live_swap
@@ -381,6 +383,8 @@ def on_preview_frame_changed(frame_num, files, fake_preview, enhancer, detection
     roop.globals.distance_threshold = face_distance
     roop.globals.blend_ratio = blend_ratio
     roop.globals.no_face_action = index_of_no_face_action(no_face_action)
+    roop.globals.vr_mode = vr_mode
+    roop.globals.autorotate_faces = auto_rotate
 
     if use_clip and clip_text is None or len(clip_text) < 1:
         use_clip = False
@@ -465,7 +469,7 @@ def translate_swap_mode(dropdown_text):
 
 
 def start_swap( enhancer, detection, keep_frames, wait_after_extraction, skip_audio, face_distance, blend_ratio,
-                use_clip, clip_text, processing_method, no_face_action, progress=gr.Progress(track_tqdm=False)):
+                use_clip, clip_text, processing_method, no_face_action, vr_mode, autorotate, progress=gr.Progress(track_tqdm=False)):
     from ui.main import prepare_environment
     from roop.core import batch_process
     global is_processing, list_files_process
@@ -488,6 +492,8 @@ def start_swap( enhancer, detection, keep_frames, wait_after_extraction, skip_au
     roop.globals.skip_audio = skip_audio
     roop.globals.face_swap_mode = translate_swap_mode(detection)
     roop.globals.no_face_action = index_of_no_face_action(no_face_action)
+    roop.globals.vr_mode = vr_mode
+    roop.globals.autorotate_faces = autorotate
     if use_clip and clip_text is None or len(clip_text) < 1:
         use_clip = False
     

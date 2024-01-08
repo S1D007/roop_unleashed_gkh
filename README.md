@@ -59,6 +59,15 @@ Additional commandline arguments are currently unsupported and settings should b
 
 ### Changelog
 
+**08.01.2024** v3.5.0
+
+- Bugfix: wrong access options when creating folders
+- New auto rotation of horizontal faces, fixing bad landmark positions (expanded on ![PR 364](https://github.com/C0untFloyd/roop-unleashed/pull/364))
+- Simple VR Option for stereo Images/Movies, best used in selected face mode
+- Added RestoreFormer Enhancer - https://github.com/wzhouxiff/RestoreFormer
+- Bumped up package versions for onnx/Torch etc.   
+
+
 **16.10.2023** v3.3.4
 
 **11.8.2023** v2.7.0
