@@ -201,7 +201,7 @@ def get_device() -> str:
     if 'CoreMLExecutionProvider' in prov:
         return 'mps'
     if 'CUDAExecutionProvider' in prov or 'ROCMExecutionProvider' in prov:
-	return 'cuda'
+	    return 'cuda'
     if 'OpenVINOExecutionProvider' in prov:
         return 'mkl'
     return 'cpu'
