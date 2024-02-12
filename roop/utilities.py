@@ -198,11 +198,13 @@ def get_device() -> str:
         roop.globals.execution_providers = ['CPUExecutionProvider']
 
     prov = roop.globals.execution_providers[0]
-    if 'CUDAExecutionProvider' == prov:
-        return 'cuda'
-    if 'CoreMLExecutionProvider' == prov:
-        return 'mps'
-    return 'cpu'
+    if 'CoreMLExecutionProvider' in prov:
+		return 'mps'
+	if 'CUDAExecutionProvider' in prov or 'ROCMExecutionProvider' in prov :
+		return 'cuda'
+	if 'OpenVINOExecutionProvider' in prov:
+		return 'mkl'
+	return 'cpu'
     
 
 def str_to_class(module_name, class_name):
