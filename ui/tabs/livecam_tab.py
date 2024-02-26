@@ -59,7 +59,7 @@ def on_stream_swap_cam(camimage, enhancer, blend_ratio):
     if not cam_swapping:
         cam_swapping = True
         if len(roop.globals.INPUT_FACESETS) > 0:
-            current_cam_image = live_swap(camimage, "all", False, None, ui.globals.ui_SELECTED_INPUT_FACE_INDEX)
+            current_cam_image = live_swap(camimage, "all", False, None, None, ui.globals.ui_SELECTED_INPUT_FACE_INDEX)
         else:
             current_cam_image = camimage
         cam_swapping = False

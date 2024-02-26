@@ -44,7 +44,7 @@ def settings_tab():
                 video_quality = gr.Slider(0, 100, value=roop.globals.CFG.video_quality, label="Video Quality (crf)", info='default: 14', step=1.0, interactive=True)
             with gr.Column():
                 button_apply_restart = gr.Button("Restart Server", variant='primary')
-                with gr.Box():
+                with gr.Group():
                     settings_controls.append(gr.Checkbox(label='Start with active live cam', value=roop.globals.CFG.live_cam_start_active, elem_id='live_cam_start_active', interactive=True))
                     settings_controls.append(gr.Checkbox(label='Use OS temp folder', value=roop.globals.CFG.use_os_temp_folder, elem_id='use_os_temp_folder', interactive=True))
                 button_clean_temp = gr.Button("Clean temp folder")

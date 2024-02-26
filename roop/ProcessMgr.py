@@ -38,6 +38,8 @@ class ProcessMgr():
     input_face_datas = []
     target_face_datas = []
 
+    imagemask = None
+
     processors = []
     options : ProcessOptions = None
     
@@ -103,6 +105,18 @@ class ProcessMgr():
                     p.Initialize(devicename)
                     if p is not None:
                         self.processors.insert(i, p)
+
+        if self.options.imagemask is not None and "layers" in self.options.imagemask and len(self.options.imagemask["layers"]) > 0:
+            self.options.imagemask = self.options.imagemask["layers"][0]
+            # Get rid of alpha
+            self.options.imagemask = cv2.cvtColor(self.options.imagemask, cv2.COLOR_RGBA2RGB)
+            if np.any(self.options.imagemask):
+                mask_blur = 5
+                self.options.imagemask = cv2.GaussianBlur(self.options.imagemask, (mask_blur*2+1,mask_blur*2+1), 0)
+                self.options.imagemask = self.options.imagemask.astype(np.float32) / 255
+            else:
+                self.options.imagemask = None
+ 
 
 
 
@@ -269,7 +283,6 @@ class ProcessMgr():
 
     def process_frame(self, frame:Frame):
         use_original_frame = 0
-        retry_rotated_180 = 1
         skip_frame = 2
 
         if len(self.input_face_datas) < 1:
@@ -345,6 +358,10 @@ class ProcessMgr():
             return num_faces_found, frame
 
         maskprocessor = next((x for x in self.processors if x.processorname == 'clip2seg'), None)
+
+        if self.options.imagemask is not None and self.options.imagemask.shape == frame.shape:
+            temp_frame = self.simple_blend_with_mask(temp_frame, frame, self.options.imagemask)
+
         if maskprocessor is not None:
             temp_frame = self.process_mask(maskprocessor, frame, temp_frame)
         return num_faces_found, temp_frame
@@ -478,6 +495,7 @@ class ProcessMgr():
 
         fake_frame = cv2.resize(fake_frame, (upscale, upscale), cv2.INTER_CUBIC)
         mask_offsets = inputface.mask_offsets
+
         
         if enhanced_frame is None:
             scale_factor = int(upscale / orig_width)
@@ -488,7 +506,7 @@ class ProcessMgr():
         if rotation_action is not None:
             fake_frame = self.auto_unrotate_frame(result, rotation_action)
             return self.paste_simple(fake_frame, saved_frame, startX, startY)
-
+        
         return result
 
         
@@ -513,7 +531,12 @@ class ProcessMgr():
         dest[start_y:end_y, start_x:end_x] = src
         return dest
         
-    
+    def simple_blend_with_mask(self, image1, image2, mask):
+        # Blend the images
+        blended_image = image1.astype(np.float32) * (1.0 - mask) + image2.astype(np.float32) * mask
+        return blended_image.astype(np.uint8)
+
+
     # Paste back adapted from here
     # https://github.com/fAIseh00d/refacer/blob/main/refacer.py
     # which is revised insightface paste back code
@@ -524,11 +547,13 @@ class ProcessMgr():
 
         face_matte = np.full((target_img.shape[0],target_img.shape[1]), 255, dtype=np.uint8)
         ##Generate white square sized as a upsk_face
-        img_matte = np.full((upsk_face.shape[0],upsk_face.shape[1]), 255, dtype=np.uint8)
-        if mask_offsets[0] > 0:
-            img_matte[:mask_offsets[0],:] = 0
-        if mask_offsets[1] > 0:
-            img_matte[-mask_offsets[1]:,:] = 0
+        img_matte = np.full((upsk_face.shape[0],upsk_face.shape[1]), 0, dtype=np.uint8)
+
+        top = mask_offsets[0]
+        bottom = target_img.shape[0] - mask_offsets[1]
+        left = mask_offsets[2]
+        right = target_img.shape[1] - mask_offsets[3]
+        img_matte[top:bottom,left:right] = 255
 
         ##Transform white square back to target_img
         img_matte = cv2.warpAffine(img_matte, IM, (target_img.shape[1], target_img.shape[0]), flags=cv2.INTER_NEAREST, borderValue=0.0) 

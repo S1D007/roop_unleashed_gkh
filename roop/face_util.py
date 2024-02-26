@@ -321,4 +321,9 @@ def trans_points(pts, M):
         return trans_points2d(pts, M)
     else:
         return trans_points3d(pts, M)
+    
+def create_blank_image(width, height):
+    img = np.zeros((height, width, 4), dtype=np.uint8)
+    img[:] = [0,0,0,0]
+    return img
 

@@ -19,26 +19,19 @@ def extras_tab():
                 with gr.Row(variant='panel'):
                     with gr.Column():
                         gr.Markdown("""
-                                    # Cut video
-                                    Be aware that this means re-encoding the video which might take a longer time.
-                                    Encoding uses your configuration from the Settings Tab.
+                                    # Poor man's video editor
+                                    Re-encoding uses your configuration from the Settings Tab.
     """)
                     with gr.Column():
                         cut_start_time = gr.Slider(0, 1000000, value=0, label="Start Frame", step=1.0, interactive=True)
                     with gr.Column():
                         cut_end_time = gr.Slider(1, 1000000, value=1, label="End Frame", step=1.0, interactive=True)
                     with gr.Column():
+                        extras_chk_encode = gr.Checkbox(label='Re-encode videos (necessary for videos with different codecs)', value=False)
                         start_cut_video = gr.Button("Cut video")
                         start_extract_frames = gr.Button("Extract frames")
+                        start_join_videos = gr.Button("Join videos")
 
-                with gr.Row(variant='panel'):
-                    with gr.Column():
-                        gr.Markdown("""
-                                    # Join videos
-    """)
-                    with gr.Column():
-                        extras_chk_encode = gr.Checkbox(label='Re-encode video (necessary for videos with different codecs)', value=False)
-                        start_join_videos = gr.Button("Start")
                 with gr.Row(variant='panel'):
                     with gr.Column():
                         gr.Markdown("""
@@ -55,13 +48,13 @@ def extras_tab():
         with gr.Row():
             extra_files_output = gr.Files(label='Resulting output files', file_count="multiple")
 
-    start_cut_video.click(fn=on_cut_video, inputs=[files_to_process, cut_start_time, cut_end_time], outputs=[extra_files_output])
+    start_cut_video.click(fn=on_cut_video, inputs=[files_to_process, cut_start_time, cut_end_time, extras_chk_encode], outputs=[extra_files_output])
     start_extract_frames.click(fn=on_extras_extract_frames, inputs=[files_to_process], outputs=[extra_files_output])
     start_join_videos.click(fn=on_join_videos, inputs=[files_to_process, extras_chk_encode], outputs=[extra_files_output])
     extras_create_video.click(fn=on_extras_create_video, inputs=[extras_images_folder, extras_fps, extras_chk_creategif], outputs=[extra_files_output])
 
 
-def on_cut_video(files, cut_start_frame, cut_end_frame):
+def on_cut_video(files, cut_start_frame, cut_end_frame, reencode):
     if files is None:
         return None
     
@@ -69,7 +62,7 @@ def on_cut_video(files, cut_start_frame, cut_end_frame):
     for tf in files:
         f = tf.name
         destfile = util.get_destfilename_from_path(f, roop.globals.output_path, '_cut')
-        ffmpeg.cut_video(f, destfile, cut_start_frame, cut_end_frame)
+        ffmpeg.cut_video(f, destfile, cut_start_frame, cut_end_frame, reencode)
         if os.path.isfile(destfile):
             resultfiles.append(destfile)
         else:

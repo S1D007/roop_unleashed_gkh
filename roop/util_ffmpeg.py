@@ -9,12 +9,13 @@ from typing import List, Any
 def run_ffmpeg(args: List[str]) -> bool:
     commands = ['ffmpeg', '-hide_banner', '-hwaccel', 'auto', '-y', '-loglevel', roop.globals.log_level]
     commands.extend(args)
-    print (" ".join(commands))
+    print ("Running ffmpeg")
     try:
         subprocess.check_output(commands, stderr=subprocess.STDOUT)
         return True
     except Exception as e:
-        print(e)
+        print("Running ffmpeg failed! Commandline:")
+        print (" ".join(commands))
     return False
 
 
@@ -30,12 +31,15 @@ def run_ffmpeg(args: List[str]) -> bool:
 	# 	return 24
 
 
-def cut_video(original_video: str, cut_video: str, start_frame: int, end_frame: int):
+def cut_video(original_video: str, cut_video: str, start_frame: int, end_frame: int, reencode: bool):
     fps = util.detect_fps(original_video)
     start_time = start_frame / fps
     num_frames = end_frame - start_frame
 
-    run_ffmpeg(['-ss',  str(start_time), '-i', original_video, '-c:v', roop.globals.video_encoder, '-c:a', 'aac', '-frames:v', str(num_frames), cut_video])
+    if reencode:
+        run_ffmpeg(['-ss',  format(start_time, ".2f"), '-i', original_video, '-c:v', roop.globals.video_encoder, '-c:a', 'aac', '-frames:v', str(num_frames), cut_video])
+    else:
+        run_ffmpeg(['-ss',  format(start_time, ".2f"), '-i', original_video,  '-frames:v', str(num_frames), '-c:v' ,'copy','-c:a' ,'copy', cut_video])
 
 def join_videos(videos: List[str], dest_filename: str, simple: bool):
     if simple:
@@ -56,6 +60,9 @@ def join_videos(videos: List[str], dest_filename: str, simple: bool):
             inputs.append(v)
             filter += f'[{i}:v:0][{i}:a:0]'
         run_ffmpeg([" ".join(inputs), '-filter_complex', f'"{filter}concat=n={len(videos)}:v=1:a=1[outv][outa]"', '-map', '"[outv]"', '-map', '"[outa]"', dest_filename])    
+
+        #     filter += f'[{i}:v:0][{i}:a:0]'
+        # run_ffmpeg([" ".join(inputs), '-filter_complex', f'"{filter}concat=n={len(videos)}:v=1:a=1[outv][outa]"', '-map', '"[outv]"', '-map', '"[outa]"', dest_filename])    
 
 
 
