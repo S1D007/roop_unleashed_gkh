@@ -212,7 +212,7 @@ def preview_mask(frame, clip_text):
 
 
 
-def batch_process(files:list[ProcessEntry], use_clip, new_clip_text, use_new_method, imagemask, progress) -> None:
+def batch_process(files:list[ProcessEntry], use_clip, new_clip_text, use_new_method, imagemask, progress, selected_index = 0) -> None:
     global clip_text, process_mgr
 
     roop.globals.processing = True
@@ -248,7 +248,7 @@ def batch_process(files:list[ProcessEntry], use_clip, new_clip_text, use_new_met
     if process_mgr is None:
         process_mgr = ProcessMgr(progress)
     mask = imagemask["layers"][0] if imagemask is not None else None
-    options = ProcessOptions(get_processing_plugins(use_clip), roop.globals.distance_threshold, roop.globals.blend_ratio, roop.globals.face_swap_mode, 0, new_clip_text, mask)
+    options = ProcessOptions(get_processing_plugins(use_clip), roop.globals.distance_threshold, roop.globals.blend_ratio, roop.globals.face_swap_mode, selected_index, new_clip_text, mask)
     process_mgr.initialize(roop.globals.INPUT_FACESETS, roop.globals.TARGET_FACES, options)
 
     if(len(imagefiles) > 0):

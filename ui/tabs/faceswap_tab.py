@@ -550,7 +550,7 @@ def start_swap( enhancer, detection, keep_frames, wait_after_extraction, skip_au
     roop.globals.video_quality = roop.globals.CFG.video_quality
     roop.globals.max_memory = roop.globals.CFG.memory_limit if roop.globals.CFG.memory_limit > 0 else None
 
-    batch_process(list_files_process, use_clip, clip_text, processing_method == "In-Memory processing", imagemask, progress)
+    batch_process(list_files_process, use_clip, clip_text, processing_method == "In-Memory processing", imagemask, progress, SELECTED_INPUT_FACE_INDEX)
     is_processing = False
     outdir = pathlib.Path(roop.globals.output_path)
     outfiles = [str(item) for item in outdir.rglob("*") if item.is_file()]
