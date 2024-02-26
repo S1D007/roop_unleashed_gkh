@@ -2,37 +2,46 @@ import os
 import cv2 
 import numpy as np
 import psutil
-
+import time
 from roop.ProcessOptions import ProcessOptions
 
 from roop.face_util import get_first_face, get_all_faces, rotate_image_180, rotate_anticlockwise, rotate_clockwise, clamp_cut_values
 from roop.utilities import compute_cosine_distance, get_device, str_to_class
 import roop.vr_util as vr
 
-from typing import Any, List, Callable
+from typing import Any, List, Callable, Dict, Generator, Iterator
 from roop.typing import Frame, Face
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from threading import Thread, Lock
+from threading import Thread
 from queue import Queue
-from tqdm import tqdm
+from tqdm.auto import tqdm
+from tqdm.contrib.concurrent import thread_map as tqdm_thread_map
 from roop.ffmpeg_writer import FFMPEG_VideoWriter
 import roop.globals
+from dataclasses import dataclass
 
+@dataclass
+class FrameQueueItem:
+    idx: int
+    frame: np.array
 
-def create_queue(temp_frame_paths: List[str]) -> Queue[str]:
-    queue: Queue[str] = Queue()
-    for frame_path in temp_frame_paths:
-        queue.put(frame_path)
-    return queue
+def queue_get_iter(queue: Queue) -> Generator:
+    while True:
+        while queue.unfinished_tasks > queue.maxsize:
+            time.sleep(0.1)
+        item = queue.get()
+        if item is None:
+            break
+        yield item
 
+class gradio_tqdm(tqdm):
+    def __init__(self, iter, progress_cb: Callable, *args, **kwargs):
+        super().__init__(iter, **kwargs)
+        self._progress_cb = progress_cb
 
-def pick_queue(queue: Queue[str], queue_per_future: int) -> List[str]:
-    queues = []
-    for _ in range(queue_per_future):
-        if not queue.empty():
-            queues.append(queue.get())
-    return queues
-
+    def update(self, n=1):
+        super(tqdm, self).update(n)
+        if self._progress_cb:
+            self._progress_cb(self)
 
 class ProcessMgr():
     input_face_datas = []
@@ -42,22 +51,10 @@ class ProcessMgr():
     options : ProcessOptions = None
     
     num_threads = 1
-    current_index = 0
-    processing_threads = 1
-    buffer_wait_time = 0.1
-
-    lock = Lock()
-
-    frames_queue = None
-    processed_queue = None
-
-    videowriter= None
+    buffer_frames_per_thread = 3
 
     progress_gradio = None
     total_frames = 0
-
-    
-
 
     plugins =  { 
     'faceswap'          : 'FaceSwapInsightFace',
@@ -105,135 +102,109 @@ class ProcessMgr():
                         self.processors.insert(i, p)
 
 
-
     def run_batch(self, source_files, target_files, threads:int = 1):
         progress_bar_format = '{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}{postfix}]'
-        self.total_frames = len(source_files)
-        self.num_threads = threads
-        with tqdm(total=self.total_frames, desc='Processing', unit='frame', dynamic_ncols=True, bar_format=progress_bar_format) as progress:
-            with ThreadPoolExecutor(max_workers=threads) as executor:
-                futures = []
-                queue = create_queue(source_files)
-                queue_per_future = max(len(source_files) // threads, 1)
-                while not queue.empty():
-                    future = executor.submit(self.process_frames, source_files, target_files, pick_queue(queue, queue_per_future), lambda: self.update_progress(progress))
-                    futures.append(future)
-                for future in as_completed(futures):
-                    future.result()
-
-
-    def process_frames(self, source_files: List[str], target_files: List[str], current_files, update: Callable[[], None]) -> None:
-        for f in current_files:
-            if not roop.globals.processing:
-                return
-            
-            temp_frame = cv2.imread(f)
-            if temp_frame is not None:
-                resimg = self.process_frame(temp_frame)
-                if resimg is not None:
-                    i = source_files.index(f)
-                    cv2.imwrite(target_files[i], resimg)
-            if update:
-                update()
-
-
-
-    def read_frames_thread(self, cap, frame_start, frame_end, num_threads):
-        num_frame = 0
-        total_num = frame_end - frame_start
-        if frame_start > 0:
-            cap.set(cv2.CAP_PROP_POS_FRAMES,frame_start)
-
-        while True and roop.globals.processing:
-            ret, frame = cap.read()
-            if not ret:
-                break
-                
-            self.frames_queue[num_frame % num_threads].put(frame, block=True)
-            num_frame += 1
-            if num_frame == total_num:
-                break
-
-        for i in range(num_threads):
-            self.frames_queue[i].put(None)
-
-
-
-    def process_videoframes(self, threadindex, progress) -> None:
-        while True:
-            frame = self.frames_queue[threadindex].get()
-            if frame is None:
-                self.processing_threads -= 1
-                self.processed_queue[threadindex].put((False, None))
-                return
-            else:
-                resimg = self.process_frame(frame)
-                self.processed_queue[threadindex].put((True, resimg))
-                del frame
-                progress()
-
-
-    def write_frames_thread(self):
-        nextindex = 0
-        num_producers = self.num_threads
-        
-        while True:
-            process, frame = self.processed_queue[nextindex % self.num_threads].get()
-            nextindex += 1
-            if frame is not None:
-                self.videowriter.write_frame(frame)
-                del frame
-            elif process == False:
-                num_producers -= 1
-                if num_producers < 1:
-                    return
-            
-
-
-    def run_batch_inmem(self, source_video, target_video, frame_start, frame_end, fps, threads:int = 1, skip_audio=False):
-        cap = cv2.VideoCapture(source_video)
-        # frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        frame_count = (frame_end - frame_start) + 1
-        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        frame_count = len(source_files)
 
         self.total_frames = frame_count
         self.num_threads = threads
 
-        self.processing_threads = self.num_threads
-        self.frames_queue = []
-        self.processed_queue = []
-        for _ in range(threads):
-            self.frames_queue.append(Queue(1))
-            self.processed_queue.append(Queue(1))
+        def proc_frame(idx: int) -> None:
+            nonlocal source_files
+            nonlocal target_files
+            if not roop.globals.processing:
+                return
+            
+            source_file = source_files[idx]
+            target_file = target_files[idx]
 
-        self.videowriter =  FFMPEG_VideoWriter(target_video, (width, height), fps, codec=roop.globals.video_encoder, crf=roop.globals.video_quality, audiofile=None)
+            frame = cv2.imread(source_file)
+            if frame is not None:
+                res_img = self.process_frame(frame)
+                if res_img is not None:
+                    cv2.imwrite(target_file, res_img)
 
-        readthread = Thread(target=self.read_frames_thread, args=(cap, frame_start, frame_end, threads))
+        tqdm_thread_map(proc_frame, range(0, frame_count), total=frame_count, desc="Processing", unit="frames", dynamic_ncols=True, bar_format=progress_bar_format, max_workers=threads, tqdm_class=gradio_tqdm, progress_cb=self.update_progress)
+
+
+
+    def read_frames_thread(self, vid_reader: cv2.VideoCapture, frame_start: int, frame_end: int, output_queue: Queue[FrameQueueItem] ):
+        num_frame = 0
+        total_num = frame_end - frame_start
+        if frame_start > 0:
+            vid_reader.set(cv2.CAP_PROP_POS_FRAMES,frame_start)
+
+        while True and roop.globals.processing:
+            ret, frame = vid_reader.read()
+            if not ret:
+                break
+            output_queue.put( FrameQueueItem(idx=num_frame, frame=frame), block=True)
+            num_frame += 1
+            if num_frame == total_num:
+                break
+        output_queue.put(None) # mark end of stream
+        vid_reader.release()
+
+
+    def write_frames_thread(self, video_writer: FFMPEG_VideoWriter, write_queue: Queue[FrameQueueItem]):
+        next_idx = 0
+
+        pending_frames: Dict[int, np.array] = {}
+        while True:
+            item = write_queue.get()
+            try:
+                if item is None:
+                    break
+                pending_frames[item.idx] = item.frame
+                while next_idx in pending_frames:
+                    frame = pending_frames.pop(next_idx)
+                    video_writer.write_frame(frame)
+                    del frame
+                    next_idx += 1
+            finally:
+                write_queue.task_done()
+        video_writer.close()
+
+
+    def run_batch_inmem(self, source_video, target_video, frame_start, frame_end, fps, threads:int = 1, skip_audio=False):
+        video_reader: cv2.VideoCapture = cv2.VideoCapture(source_video)
+        # frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        frame_count = (frame_end - frame_start) + 1
+        width = int(video_reader.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(video_reader.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+        self.total_frames = frame_count
+        self.num_threads = threads
+
+        video_writer: cv2.VideoWriter =  FFMPEG_VideoWriter(target_video, (width, height), fps, codec=roop.globals.video_encoder, crf=roop.globals.video_quality, audiofile=None)
+
+        reader_queue: Queue[FrameQueueItem] = Queue(maxsize=ProcessMgr.buffer_frames_per_thread*threads)
+        readthread = Thread(target=self.read_frames_thread, args=(video_reader, frame_start, frame_end, reader_queue))
         readthread.start()
 
-        writethread = Thread(target=self.write_frames_thread)
+        writer_queue: Queue[FrameQueueItem] = Queue()
+        writethread = Thread(target=self.write_frames_thread, args=(video_writer, writer_queue))
         writethread.start()
 
-        progress_bar_format = '{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}{postfix}]'
-        with tqdm(total=self.total_frames, desc='Processing', unit='frames', dynamic_ncols=True, bar_format=progress_bar_format) as progress:
-            with ThreadPoolExecutor(thread_name_prefix='swap_proc', max_workers=self.num_threads) as executor:
-                futures = []
-                
-                for threadindex in range(threads):
-                    future = executor.submit(self.process_videoframes, threadindex, lambda: self.update_progress(progress))
-                    futures.append(future)
-                
-                for future in as_completed(futures):
-                    future.result()
-        # wait for the task to complete
-        readthread.join()
-        writethread.join()
-        cap.release()
-        self.videowriter.close()
-        self.frames_queue.clear()
-        self.processed_queue.clear()
 
+        def proc_frame(iter: Iterator[FrameQueueItem]) -> None:
+            nonlocal writer_queue
+            nonlocal reader_queue
+            if not roop.globals.processing:
+                return
+            res_img = self.process_frame(iter.frame)
+            writer_queue.put(FrameQueueItem(idx=iter.idx, frame=res_img))
+            reader_queue.task_done()
+
+        progress_bar_format = '{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}{postfix}]'
+        tqdm_thread_map(proc_frame, queue_get_iter(reader_queue), total=frame_count, desc="Processing", unit="frames", dynamic_ncols=True, bar_format=progress_bar_format, max_workers=threads, tqdm_class=gradio_tqdm, progress_cb=self.update_progress)
+
+        readthread.join()
+        reader_queue.join()
+
+        writer_queue.put(None) # signal write queue to exit
+        writethread.join()
+        writer_queue.join()
 
 
 
@@ -245,7 +216,6 @@ class ProcessMgr():
             'memory_usage': '{:.2f}'.format(memory_usage).zfill(5) + 'GB',
             'execution_threads': self.num_threads
         })
-        progress.update(1)
         self.progress_gradio((progress.n, self.total_frames), desc='Processing', total=self.total_frames, unit='frames')
 
 

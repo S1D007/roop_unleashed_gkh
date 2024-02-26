@@ -138,12 +138,13 @@ def clamp_cut_values(startX, endX, startY, endY, image):
 def get_face_swapper() -> Any:
     global FACE_SWAPPER
 
-    with THREAD_LOCK_SWAPPER:
-        if FACE_SWAPPER is None:
-            model_path = resolve_relative_path("../models/inswapper_128.onnx")
-            FACE_SWAPPER = insightface.model_zoo.get_model(
-                model_path, providers=roop.globals.execution_providers
-            )
+    if FACE_SWAPPER is None:
+        with THREAD_LOCK_SWAPPER:
+            if FACE_SWAPPER is None:
+                model_path = resolve_relative_path("../models/inswapper_128.onnx")
+                FACE_SWAPPER = insightface.model_zoo.get_model(
+                    model_path, providers=roop.globals.execution_providers
+                )
     return FACE_SWAPPER
 
 
