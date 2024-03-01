@@ -88,8 +88,11 @@ class ProcessMgr():
                 classname = self.plugins[pn]
                 module = 'roop.processors.' + classname
                 p = str_to_class(module, classname)
-                p.Initialize(devicename)
-                self.processors.append(p)
+                if p is not None:
+                    p.Initialize(devicename)
+                    self.processors.append(p)
+                else:
+                    print(f"Not using {module}")
         else:
             for i in range(len(self.processors) -1, -1, -1):
                 if not self.processors[i].processorname in processornames:
@@ -98,13 +101,15 @@ class ProcessMgr():
 
             for i,pn in enumerate(processornames):
                 if i >= len(self.processors) or self.processors[i].processorname != pn:
-                    p = None
                     classname = self.plugins[pn]
                     module = 'roop.processors.' + classname
                     p = str_to_class(module, classname)
-                    p.Initialize(devicename)
                     if p is not None:
+                        p.Initialize(devicename)
                         self.processors.insert(i, p)
+                    else:
+                        print(f"Not using {module}")
+
 
         if self.options.imagemask is not None and "layers" in self.options.imagemask and len(self.options.imagemask["layers"]) > 0:
             self.options.imagemask = self.options.imagemask["layers"][0]
