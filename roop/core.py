@@ -187,6 +187,8 @@ def live_swap(frame, swap_mode, use_clip, clip_text, imagemask, selected_index =
     if process_mgr is None:
         process_mgr = ProcessMgr(None)
     
+    if len(roop.globals.INPUT_FACESETS) <= selected_index:
+        selected_index = 0
     options = ProcessOptions(get_processing_plugins(use_clip), roop.globals.distance_threshold, roop.globals.blend_ratio,
                               swap_mode, selected_index, clip_text,imagemask)
     process_mgr.initialize(roop.globals.INPUT_FACESETS, roop.globals.TARGET_FACES, options)
@@ -247,7 +249,9 @@ def batch_process(files:list[ProcessEntry], use_clip, new_clip_text, use_new_met
 
     if process_mgr is None:
         process_mgr = ProcessMgr(progress)
-    mask = imagemask["layers"][0] if imagemask is not None else None
+mask = imagemask["layers"][0] if imagemask is not None else None
+    if len(roop.globals.INPUT_FACESETS) <= selected_index:
+        selected_index = 0
     options = ProcessOptions(get_processing_plugins(use_clip), roop.globals.distance_threshold, roop.globals.blend_ratio, roop.globals.face_swap_mode, selected_index, new_clip_text, mask)
     process_mgr.initialize(roop.globals.INPUT_FACESETS, roop.globals.TARGET_FACES, options)
 
