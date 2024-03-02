@@ -200,15 +200,17 @@ def get_device() -> str:
     prov = roop.globals.execution_providers[0]
     if 'CoreMLExecutionProvider' in prov:
         return 'mps'
-    if 'CUDAExecutionProvider' in prov or 'ROCMExecutionProvider' in prov:
-	    return 'cuda'
+    if 'CUDAExecutionProvider' in prov:
+        return 'cuda'
     if 'OpenVINOExecutionProvider' in prov:
         return 'mkl'
-    return 'cpu'
-    
+    return 'cpu' 
+   
 
 def str_to_class(module_name, class_name):
     from importlib import import_module
+
+    class_ = None
     try:
         module_ = import_module(module_name)
         try:
@@ -217,7 +219,7 @@ def str_to_class(module_name, class_name):
             print(f'Class {class_name} does not exist')
     except ImportError:
         print(f'Module {module_name} does not exist')
-    return class_ or None
+    return class_
 
 
 # Taken from https://stackoverflow.com/a/68842705

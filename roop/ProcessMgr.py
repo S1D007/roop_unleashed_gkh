@@ -86,8 +86,11 @@ class ProcessMgr():
                 classname = self.plugins[pn]
                 module = 'roop.processors.' + classname
                 p = str_to_class(module, classname)
-                p.Initialize(devicename)
-                self.processors.append(p)
+                if p is not None:
+                    p.Initialize(devicename)
+                    self.processors.append(p)
+                else:
+                    print(f"Not using {module}")
         else:
             for i in range(len(self.processors) -1, -1, -1):
                 if not self.processors[i].processorname in processornames:
@@ -100,9 +103,11 @@ class ProcessMgr():
                     classname = self.plugins[pn]
                     module = 'roop.processors.' + classname
                     p = str_to_class(module, classname)
-                    p.Initialize(devicename)
                     if p is not None:
+                        p.Initialize(devicename)
                         self.processors.insert(i, p)
+                    else:
+                        print(f"Not using {module}")
 
 
 
@@ -320,11 +325,15 @@ class ProcessMgr():
                     del face
             
             elif self.options.swap_mode == "selected":
+                use_index = len(self.target_face_datas) == 1
                 for i,tf in enumerate(self.target_face_datas):
                     for face in faces:
                         if compute_cosine_distance(tf.embedding, face.embedding) <= self.options.face_distance_threshold:
                             if i < len(self.input_face_datas):
-                                temp_frame = self.process_face(i, face, temp_frame)
+                                if use_index:
+                                    temp_frame = self.process_face(self.options.selected_index, face, temp_frame)
+                                else:
+                                    temp_frame = self.process_face(i, face, temp_frame)
                                 num_faces_found += 1
                             if not roop.globals.vr_mode:
                                 break
