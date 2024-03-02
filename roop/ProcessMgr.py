@@ -486,6 +486,7 @@ class ProcessMgr():
 
             # img = vr.GetPerspective(frame, 90, theta, phi, 1280, 1280)  # Generate perspective image
 
+        fake_frame = None
         for p in self.processors:
             if p.type == 'swap':
                 fake_frame = p.Run(inputface, target_face, frame)
