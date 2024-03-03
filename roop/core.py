@@ -121,7 +121,7 @@ def pre_check() -> bool:
     util.conditional_download(download_directory_path, ['https://huggingface.co/countfloyd/deepfake/resolve/main/GFPGANv1.4.onnx'])
     util.conditional_download(download_directory_path, ['https://github.com/csxmli2016/DMDNet/releases/download/v1/DMDNet.pth'])
     util.conditional_download(download_directory_path, ['https://github.com/facefusion/facefusion-assets/releases/download/models/GPEN-BFR-512.onnx'])
-    util.conditional_download(download_directory_path, ['https://huggingface.co/countfloyd/deepfake/resolve/main/restoreformer.onnx'])
+    util.conditional_download(download_directory_path, ['https://github.com/facefusion/facefusion-assets/releases/download/models/restoreformer_plus_plus.onnx'])
     download_directory_path = util.resolve_relative_path('../models/CLIP')
     util.conditional_download(download_directory_path, ['https://huggingface.co/countfloyd/deepfake/resolve/main/rd64-uni-refined.pth'])
     download_directory_path = util.resolve_relative_path('../models/CodeFormer')
@@ -173,8 +173,8 @@ def get_processing_plugins(use_clip):
         processors += ",dmdnet"
     elif roop.globals.selected_enhancer == 'GPEN':
         processors += ",gpen"
-    elif roop.globals.selected_enhancer == 'Restoreformer':
-        processors += ",restoreformer"
+    elif roop.globals.selected_enhancer == 'Restoreformer++':
+        processors += ",restoreformer++"
     return processors
 
 

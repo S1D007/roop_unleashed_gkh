@@ -260,8 +260,7 @@ def get_platform():
             pass
     return sys.platform
 
-
-def open_with_default_app(filename):
+def open_with_default_app(filename:str):
     if filename == None:
         return
     platform = get_platform()

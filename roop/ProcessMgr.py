@@ -68,7 +68,7 @@ class ProcessMgr():
     'gfpgan'            : 'Enhance_GFPGAN',
     'dmdnet'            : 'Enhance_DMDNet',
     'gpen'              : 'Enhance_GPEN',
-    'restoreformer'   : 'Enhance_RestoreFormer',
+    'restoreformer++'   : 'Enhance_RestoreFormerPPlus',
     }
 
     def __init__(self, progress):
@@ -338,11 +338,15 @@ class ProcessMgr():
                     del face
             
             elif self.options.swap_mode == "selected":
+                use_index = len(self.target_face_datas) == 1
                 for i,tf in enumerate(self.target_face_datas):
                     for face in faces:
                         if compute_cosine_distance(tf.embedding, face.embedding) <= self.options.face_distance_threshold:
                             if i < len(self.input_face_datas):
-                                temp_frame = self.process_face(i, face, temp_frame)
+                                if use_index:
+                                    temp_frame = self.process_face(self.options.selected_index, face, temp_frame)
+                                else:
+                                    temp_frame = self.process_face(i, face, temp_frame)
                                 num_faces_found += 1
                             if not roop.globals.vr_mode:
                                 break

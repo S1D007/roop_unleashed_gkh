@@ -19,17 +19,6 @@ def run_ffmpeg(args: List[str]) -> bool:
     return False
 
 
-	# commands = [ 'ffprobe', '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=r_frame_rate', '-of', 'json', target_path ]
-	# output = subprocess.check_output(commands).decode().strip()
-	# try:
-	# 	entries = json.loads(output)
-	# 	for stream in entries.get('streams'):
-	# 		numerator, denominator = map(int, stream.get('r_frame_rate').split('/'))
-	# 		return numerator / denominator
-	# 	return None
-	# except (ValueError, ZeroDivisionError):
-	# 	return 24
-
 
 def cut_video(original_video: str, cut_video: str, start_frame: int, end_frame: int, reencode: bool):
     fps = util.detect_fps(original_video)

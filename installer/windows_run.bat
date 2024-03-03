@@ -16,10 +16,19 @@ set MINICONDA_DOWNLOAD_URL=https://repo.anaconda.com/miniconda/Miniconda3-latest
 set FFMPEG_DOWNLOAD_URL=https://github.com/GyanD/codexffmpeg/releases/download/2023-06-21-git-1bcb8a7338/ffmpeg-2023-06-21-git-1bcb8a7338-essentials_build.zip
 set INSTALL_FFMPEG_DIR=%cd%\installer_files\ffmpeg
 set conda_exists=F
+set ffmpeg_exists=F
+
 
 @rem figure out whether git and conda needs to be installed
 call "%CONDA_ROOT_PREFIX%\_conda.exe" --version >nul 2>&1
 if "%ERRORLEVEL%" EQU "0" set conda_exists=T
+
+@rem Check if FFmpeg is already in PATH
+where ffmpeg >nul 2>&1
+if "%ERRORLEVEL%" EQU "0" (
+    echo FFmpeg is already installed.
+    set ffmpeg_exists=T
+)
 
 @rem (if necessary) install git and conda into a contained environment
 @rem download conda
@@ -39,26 +48,32 @@ if "%conda_exists%" == "F" (
 
 @rem create the installer env
 if not exist "%INSTALL_ENV_DIR%" (
-  echo Packages to install: %PACKAGES_TO_INSTALL%
+  echo Creating Conda Environment
   call "%CONDA_ROOT_PREFIX%\_conda.exe" create --no-shortcuts -y -k --prefix "%INSTALL_ENV_DIR%" python=3.10 || ( echo. && echo Conda environment creation failed. && goto end )
 )
 
-if not exist "%INSTALL_FFMPEG_DIR%" (
-	echo Downloading ffmpeg from %FFMPEG_DOWNLOAD_URL% to %INSTALL_DIR%
- 	call curl -Lk "%FFMPEG_DOWNLOAD_URL%" > "%INSTALL_DIR%\ffmpeg.zip" || ( echo. && echo ffmpeg failed to download. && goto end )
-	call powershell -command "Expand-Archive -Force '%INSTALL_DIR%\ffmpeg.zip' '%INSTALL_DIR%\'"
+@rem Download and install FFmpeg if not already installed
+if "%ffmpeg_exists%" == "F" (
+    if not exist "%INSTALL_FFMPEG_DIR%" (
+        echo Downloading ffmpeg from %FFMPEG_DOWNLOAD_URL% to %INSTALL_DIR%
+        call curl -Lk "%FFMPEG_DOWNLOAD_URL%" > "%INSTALL_DIR%\ffmpeg.zip" || ( echo. && echo ffmpeg failed to download. && goto end )
+        call powershell -command "Expand-Archive -Force '%INSTALL_DIR%\ffmpeg.zip' '%INSTALL_DIR%\'"
 
-	cd "installer_files"
-	setlocal EnableExtensions EnableDelayedExpansion
+        cd "installer_files"
+        setlocal EnableExtensions EnableDelayedExpansion
 
-	for /f "tokens=*" %%f in ('dir /s /b /ad "ffmpeg*"') do (
-		ren "%%f" "ffmpeg"
-	)
-	endlocal
-	setx PATH "%INSTALL_FFMPEG_DIR%\bin\;%PATH%"
-	echo To use videos, you need to restart roop after this installation. 
-	cd ..
+        for /f "tokens=*" %%f in ('dir /s /b /ad "ffmpeg*"') do (
+            ren "%%f" "ffmpeg"
+        )
+        endlocal
+        setx PATH "%INSTALL_FFMPEG_DIR%\bin\;%PATH%"
+        echo To use videos, you need to restart roop after this installation. 
+        cd ..
+    )
+) else (
+    echo Skipping FFmpeg installation as it is already available.
 )
+
 
 @rem check if conda environment was actually created
 if not exist "%INSTALL_ENV_DIR%\python.exe" ( echo. && echo ERROR: Conda environment is empty. && goto end )
