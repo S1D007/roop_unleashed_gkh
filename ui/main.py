@@ -75,6 +75,7 @@ def run():
         try:
             while uii.ui_restart_server == False:
                 time.sleep(1.0)
+
         except (KeyboardInterrupt, OSError):
             print("Keyboard interruption in main thread... closing server.")
             run_server = False

@@ -480,6 +480,9 @@ def start_swap( enhancer, detection, keep_frames, wait_after_extraction, skip_au
     if roop.globals.CFG.clear_output:
         shutil.rmtree(roop.globals.output_path)
 
+    if not util.is_installed("ffmpeg"):
+        msg = "ffmpeg is not installed! No video processing possible."
+        gr.Warning(msg)
 
     prepare_environment()
 

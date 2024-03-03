@@ -222,6 +222,10 @@ def str_to_class(module_name, class_name):
     return class_
 
 
+def is_installed(name:str):
+    return shutil.which(name);
+
+
 # Taken from https://stackoverflow.com/a/68842705
 def get_platform():
     if sys.platform == 'linux':
@@ -233,7 +237,7 @@ def get_platform():
             pass
     return sys.platform
 
-def open_with_default_app(filename):
+def open_with_default_app(filename:str):
     if filename == None:
         return
     platform = get_platform()
