@@ -66,7 +66,7 @@ class ProcessMgr():
     'gfpgan'            : 'Enhance_GFPGAN',
     'dmdnet'            : 'Enhance_DMDNet',
     'gpen'              : 'Enhance_GPEN',
-    'restoreformer'   : 'Enhance_RestoreFormer',
+    'restoreformer++'   : 'Enhance_RestoreFormerPPlus',
     }
 
     def __init__(self, progress):
