@@ -66,7 +66,7 @@ def faceswap_tab():
 
             with gr.Column(scale=2):
                 previewimage = gr.Image(label="Preview Image", height=576, interactive=False, visible=True)
-                maskimage = gr.ImageEditor(label="Manual mask Image", height=576, sources=["clipboard"], transforms="",
+                maskimage = gr.ImageEditor(label="Manual mask Image", sources=["clipboard"], transforms="",
                                              brush=gr.Brush(color_mode="fixed", colors=["rgba(255, 255, 255, 1"]), interactive=True, visible=False)
                 with gr.Row(variant='panel'):
                         fake_preview = gr.Checkbox(label="Face swap frames", value=False)
@@ -431,7 +431,7 @@ def on_preview_frame_changed(frame_num, files, fake_preview, enhancer, detection
 def on_toggle_masking(previewimage, mask):
     global manual_masking
 
-    manual_masking = True if not manual_masking else False
+    manual_masking = not manual_masking
     if manual_masking:
         layers = mask["layers"]
         if len(layers) == 1:

@@ -122,7 +122,7 @@ def get_destfilename_from_path(
     return os.path.join(destfilepath, f"{fn}{extension}{ext}")
 
 
-def replace_template(file_path: str, index: int = 0):
+def replace_template(file_path: str, index: int = 0) -> str:
     fn, ext = os.path.splitext(os.path.basename(file_path))
 
     # Remove the "__temp" placeholder that was used as a temporary filename
@@ -205,7 +205,7 @@ def conditional_download(download_directory_path: str, urls: List[str]) -> None:
                 urllib.request.urlretrieve(url, download_file_path, reporthook=lambda count, block_size, total_size: progress.update(block_size))  # type: ignore[attr-defined]
 
 
-def get_local_files_from_folder(folder: str):
+def get_local_files_from_folder(folder: str) -> List[str]:
     if not os.path.exists(folder) or not os.path.isdir(folder):
         return None
     files = [
@@ -234,7 +234,7 @@ def get_device() -> str:
     return "cpu"
 
 
-def str_to_class(module_name, class_name):
+def str_to_class(module_name, class_name) -> Any:
     from importlib import import_module
 
     class_ = None
@@ -248,9 +248,11 @@ def str_to_class(module_name, class_name):
         print(f"Module {module_name} does not exist")
     return class_
 
+def is_installed(name:str) -> bool:
+    return shutil.which(name);
 
 # Taken from https://stackoverflow.com/a/68842705
-def get_platform():
+def get_platform() -> str:
     if sys.platform == "linux":
         try:
             proc_version = open("/proc/version").read()
@@ -273,7 +275,7 @@ def open_with_default_app(filename:str):
         subprocess.call("xdg-open", filename)
 
 
-def prepare_for_batch(target_files):
+def prepare_for_batch(target_files) -> str:
     print("Preparing temp files")
     tempfolder = os.path.join(tempfile.gettempdir(), "rooptmp")
     if os.path.exists(tempfolder):
@@ -321,7 +323,7 @@ def open_folder(path: str):
         # webbrowser.open(url)
 
 
-def create_version_html():
+def create_version_html() -> str:
     python_version = ".".join([str(x) for x in sys.version_info[0:3]])
     versions_html = f"""
 python: <span title="{sys.version}">{python_version}</span>
@@ -333,5 +335,5 @@ gradio: {gradio.__version__}
     return versions_html
 
 
-def compute_cosine_distance(emb1, emb2):
+def compute_cosine_distance(emb1, emb2) -> float:
     return distance.cosine(emb1, emb2)
