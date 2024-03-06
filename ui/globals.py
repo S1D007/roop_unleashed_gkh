@@ -9,6 +9,7 @@ ui_input_thumbs = []
 ui_target_thumbs = []
 
 ui_live_cam_active = False
+ui_camera_frame = None
 
 
 
