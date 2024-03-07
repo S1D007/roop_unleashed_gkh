@@ -12,6 +12,7 @@ vcam = None
 
 def virtualcamera(cam_num,width,height):
     from roop.core import live_swap
+    from roop.filters import fast_quantize_to_palette
 
     global cam_active
 
@@ -48,12 +49,11 @@ def virtualcamera(cam_num,width,height):
 
             if len(roop.globals.INPUT_FACESETS) > 0:
                 frame = live_swap(frame, "all", False, None)
-                cam.send(frame)
-                ui.globals.ui_camera_frame = frame
-            else:
-                cam.send(frame)
-                ui.globals.ui_camera_frame = frame
-                cam.sleep_until_next_frame()
+            frame = fast_quantize_to_palette(frame)
+            #frame = quantize_to_palette(frame, None)
+            cam.send(frame)
+            ui.globals.ui_camera_frame = frame
+            cam.sleep_until_next_frame()
 
     cap.release()
     print('End cam')
