@@ -61,6 +61,13 @@ Additional commandline arguments are currently unsupported and settings should b
 
 **10.03.2024** v3.5.5
 
+- Bugfix: Installer Path Env
+- Bugfix: file attributes
+- Video processing checks for presence of ffmpeg and displays warning if not found
+- Removed gender + age detection to speed up processing. Option removed from UI
+- Replaced restoreformer with restoreformer++
+- Live Cam recoded to run separate from virtual cam and without blocking controls
+- Swapping with only 1 target face allows selecting from several input faces
 
 
 
