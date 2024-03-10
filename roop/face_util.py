@@ -23,14 +23,17 @@ def get_face_analyser() -> Any:
     with THREAD_LOCK_ANALYSER:
         if FACE_ANALYSER is None:
             model_path = resolve_relative_path('..')
+            # removed genderage
+            allowed_modules=["landmark_3d_68", "landmark_2d_106","detection","recognition"]
             if roop.globals.CFG.force_cpu:
                 print("Forcing CPU for Face Analysis")
                 FACE_ANALYSER = insightface.app.FaceAnalysis(
-                    name="buffalo_l", root=model_path, providers=["CPUExecutionProvider"]
+                    name="buffalo_l",
+                    root=model_path, providers=["CPUExecutionProvider"],allowed_modules=allowed_modules
                 )
             else:
                 FACE_ANALYSER = insightface.app.FaceAnalysis(
-                    name="buffalo_l", root=model_path, providers=roop.globals.execution_providers
+                    name="buffalo_l", root=model_path, providers=roop.globals.execution_providers,allowed_modules=allowed_modules
                 )
             FACE_ANALYSER.prepare(
                 ctx_id=0,

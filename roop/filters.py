@@ -21,7 +21,6 @@ c64_palette = np.array([
 ])
 
 def fast_quantize_to_palette(image):
-    # Convert image to palette using a fast but less accurate method
     # Simply round the color values to the nearest color in the palette
     palette = c64_palette / 255.0  # Normalize palette
     img_normalized = image / 255.0  # Normalize image
