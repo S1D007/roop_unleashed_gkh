@@ -59,6 +59,11 @@ Additional commandline arguments are currently unsupported and settings should b
 
 ### Changelog
 
+**10.03.2024** v3.5.5
+
+
+
+
 **08.01.2024** v3.5.0
 
 - Bugfix: wrong access options when creating folders
@@ -89,15 +94,15 @@ Initial Gradio Version - old TkInter Version now deprecated
 
 Lots of ideas, code or pre-trained models used from the following projects:
 
-https://github.com/deepinsight/insightface
-https://github.com/s0md3v/roop
-https://github.com/AUTOMATIC1111/stable-diffusion-webui
-https://github.com/Hillobar/Rope
-https://github.com/janvarev/chain-img-processor
-https://github.com/TencentARC/GFPGAN   
-https://github.com/kadirnar/codeformer-pip
-https://github.com/csxmli2016/DMDNet
-
-
+https://github.com/deepinsight/insightface<br />
+https://github.com/s0md3v/roop<br />
+https://github.com/AUTOMATIC1111/stable-diffusion-webui<br /> 
+https://github.com/Hillobar/Rope<br />
+https://github.com/janvarev/chain-img-processor<br />
+https://github.com/TencentARC/GFPGAN<br />   
+https://github.com/kadirnar/codeformer-pip<br />
+https://github.com/csxmli2016/DMDNet<br />
+<br />
+<br />
 Thanks to all developers!
 
