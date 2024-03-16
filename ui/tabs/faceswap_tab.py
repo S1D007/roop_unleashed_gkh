@@ -89,7 +89,7 @@ def faceswap_tab():
     
         with gr.Row(variant='panel'):
             with gr.Column(scale=1):
-                selected_face_detection = gr.Dropdown(["First found", "All faces", "Selected face", "All female", "All male"], value="First found", label="Select face selection for swapping")
+                selected_face_detection = gr.Dropdown(["First found", "All female", "All male", "All faces", "Selected face"], value="First found", label="Specify face selection for swapping")
                 max_face_distance = gr.Slider(0.01, 1.0, value=0.65, label="Max Face Similarity Threshold")
                 video_swapping_method = gr.Dropdown(["Extract Frames to media","In-Memory processing"], value="In-Memory processing", label="Select video processing method", interactive=True)
                 no_face_action = gr.Dropdown(choices=no_face_choices, value=no_face_choices[0], label="Action on no face detected", interactive=True)
@@ -115,7 +115,7 @@ def faceswap_tab():
                 bt_start = gr.Button("▶ Start", variant='primary')
                 gr.Button("👀 Open Output Folder", size='sm').click(fn=lambda: util.open_folder(roop.globals.output_path))
             with gr.Column():
-                bt_stop = gr.Button("⏹ Stop", variant='secondary')
+                bt_stop = gr.Button("⏹ Stop", variant='secondary', interactive=False)
             with gr.Column(scale=2):
                 gr.Markdown(' ') 
         with gr.Row(variant='panel'):
@@ -160,10 +160,10 @@ def faceswap_tab():
     start_event = bt_start.click(fn=start_swap, 
         inputs=[ui.globals.ui_selected_enhancer, selected_face_detection, roop.globals.keep_frames, roop.globals.wait_after_extraction,
                     roop.globals.skip_audio, max_face_distance, ui.globals.ui_blend_ratio, chk_useclip, clip_text,video_swapping_method, no_face_action, vr_mode, autorotate, maskimage],
-        outputs=[bt_start, resultfiles])
+        outputs=[bt_start, bt_stop, resultfiles])
     after_swap_event = start_event.then(fn=on_resultfiles_finished, inputs=[resultfiles], outputs=[resultimage, resultvideo])
     
-    bt_stop.click(fn=stop_swap, cancels=[start_event, after_swap_event], queue=False)
+    bt_stop.click(fn=stop_swap, cancels=[start_event, after_swap_event], outputs=[bt_start, bt_stop], queue=False)
     
     bt_refresh_preview.click(fn=on_preview_frame_changed, inputs=previewinputs, outputs=previewoutputs)            
     bt_toggle_masking.click(fn=on_toggle_masking, inputs=[previewimage, maskimage], outputs=[previewimage, maskimage])            
@@ -516,7 +516,7 @@ def start_swap( enhancer, detection, keep_frames, wait_after_extraction, skip_au
     global is_processing, list_files_process
 
     if list_files_process is None or len(list_files_process) <= 0:
-        return gr.Button(variant="primary"), None
+        return gr.Button(variant="primary"), None, None
     
     if roop.globals.CFG.clear_output:
         shutil.rmtree(roop.globals.output_path)
@@ -544,10 +544,10 @@ def start_swap( enhancer, detection, keep_frames, wait_after_extraction, skip_au
     if roop.globals.face_swap_mode == 'selected':
         if len(roop.globals.TARGET_FACES) < 1:
             gr.Error('No Target Face selected!')
-            return gr.Button(variant="primary"), None
+            return gr.Button(variant="primary"), None, None
 
     is_processing = True            
-    yield gr.Button(variant="secondary"), None
+    yield gr.Button(variant="secondary", interactive=False), gr.Button(variant="primary", interactive=True), None
     roop.globals.execution_threads = roop.globals.CFG.max_threads
     roop.globals.video_encoder = roop.globals.CFG.output_video_codec
     roop.globals.video_quality = roop.globals.CFG.video_quality
@@ -558,14 +558,15 @@ def start_swap( enhancer, detection, keep_frames, wait_after_extraction, skip_au
     outdir = pathlib.Path(roop.globals.output_path)
     outfiles = [str(item) for item in outdir.rglob("*") if item.is_file()]
     if len(outfiles) > 0:
-        yield gr.Button(variant="primary"),gr.Files(value=outfiles)
+        yield gr.Button(variant="primary", interactive=True),gr.Button(variant="secondary", interactive=False),gr.Files(value=outfiles)
     else:
-        yield gr.Button(variant="primary"),None
+        yield gr.Button(variant="primary", interactive=True),gr.Button(variant="secondary", interactive=False),None
 
 
 def stop_swap():
     roop.globals.processing = False
     gr.Info('Aborting processing - please wait for the remaining threads to be stopped')
+    return gr.Button(variant="primary", interactive=True),gr.Button(variant="secondary", interactive=False),None
 
 
 def on_fps_changed(fps):

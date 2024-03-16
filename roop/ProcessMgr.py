@@ -81,6 +81,10 @@ class ProcessMgr():
         self.target_face_datas = target_faces
         self.options = options
 
+        roop.globals.g_desired_face_analysis=["landmark_3d_68", "landmark_2d_106","detection","recognition"]
+        if options.swap_mode == "all_female" or options.swap_mode == "all_male":
+            roop.globals.g_desired_face_analysis.append("genderage")
+
         processornames = options.processors.split(",")
         devicename = get_device()
         if len(self.processors) < 1:
