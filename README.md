@@ -58,6 +58,15 @@ Additional commandline arguments are currently unsupported and settings should b
 
 
 ### Changelog
+**18.03.2024** v3.6.0
+
+- Updated to Gradio 4.21.0 - requiring many changes under the hood
+- New manual masking (draw the mask yourself)
+- Extras Tab, streamlined cutting/joining videos
+- Re-added face selection by gender (on-demand loading, default turned off)
+- Removed unnecessary activate live-cam option
+- Added time info to preview frame and changed frame slider event to allow faster changes
+
 
 **10.03.2024** v3.5.5
 

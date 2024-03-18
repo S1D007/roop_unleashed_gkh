@@ -1,6 +1,5 @@
 clear_output: true
 force_cpu: false
-live_cam_start_active: false
 max_threads: 3
 memory_limit: 0
 output_image_format: png

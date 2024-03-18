@@ -37,14 +37,12 @@ def start_cam(stream_to_obs, cam, reso, enhancer, blend_ratio):
     from roop.virtualcam import start_virtual_cam
     from roop.utilities import convert_to_gradio
 
-    ui.globals.ui_live_cam_active = True
     start_virtual_cam(stream_to_obs, cam, reso)
     roop.globals.selected_enhancer = enhancer
     roop.globals.blend_ratio = blend_ratio
-
-    while ui.globals.ui_live_cam_active:
+    while True:
         yield gr.Button(interactive=False), gr.Button(interactive=True), convert_to_gradio(ui.globals.ui_camera_frame)
-    return gr.Button(interactive=True), gr.Button(interactive=False), convert_to_gradio(ui.globals.ui_camera_frame)
+        
 
 def stop_swap():
     from roop.virtualcam import stop_virtual_cam

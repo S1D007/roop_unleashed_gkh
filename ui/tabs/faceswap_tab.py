@@ -66,7 +66,7 @@ def faceswap_tab():
 
             with gr.Column(scale=2):
                 previewimage = gr.Image(label="Preview Image", height=576, interactive=False, visible=True)
-                maskimage = gr.ImageEditor(label="Manual mask Image", sources=["clipboard"], transforms="",
+                maskimage = gr.ImageEditor(label="Manual mask Image", sources=["clipboard"], transforms="", type="numpy",
                                              brush=gr.Brush(color_mode="fixed", colors=["rgba(255, 255, 255, 1"]), interactive=True, visible=False)
                 with gr.Row(variant='panel'):
                         fake_preview = gr.Checkbox(label="Face swap frames", value=False)
@@ -126,8 +126,8 @@ def faceswap_tab():
                 resultvideo = gr.Video(label='Final Video', interactive=False, visible=False)
 
     previewinputs = [preview_frame_num, bt_destfiles, fake_preview, ui.globals.ui_selected_enhancer, selected_face_detection,
-                        max_face_distance, ui.globals.ui_blend_ratio, chk_useclip, clip_text, no_face_action, vr_mode, autorotate, previewimage, maskimage]
-    previewoutputs = [preview_frame_num,previewimage, maskimage, mask_top, mask_bottom, mask_left, mask_right] 
+                        max_face_distance, ui.globals.ui_blend_ratio, chk_useclip, clip_text, no_face_action, vr_mode, autorotate, maskimage]
+    previewoutputs = [previewimage, maskimage, preview_frame_num] 
     input_faces.select(on_select_input_face, None, None).then(fn=on_preview_frame_changed, inputs=previewinputs, outputs=previewoutputs)
     bt_remove_selected_input_face.click(fn=remove_selected_input_face, outputs=[input_faces])
     bt_srcfiles.change(fn=on_srcfile_changed, show_progress='full', inputs=bt_srcfiles, outputs=[dynamic_face_selection, face_selection, input_faces])
@@ -168,7 +168,7 @@ def faceswap_tab():
     bt_refresh_preview.click(fn=on_preview_frame_changed, inputs=previewinputs, outputs=previewoutputs)            
     bt_toggle_masking.click(fn=on_toggle_masking, inputs=[previewimage, maskimage], outputs=[previewimage, maskimage])            
     fake_preview.change(fn=on_preview_frame_changed, inputs=previewinputs, outputs=previewoutputs)
-    preview_frame_num.change(fn=on_preview_frame_changed, inputs=previewinputs, outputs=previewoutputs, show_progress='hidden')
+    preview_frame_num.release(fn=on_preview_frame_changed, inputs=previewinputs, outputs=previewoutputs, show_progress='hidden', )
     bt_use_face_from_preview.click(fn=on_use_face_from_selected, show_progress='full', inputs=[bt_destfiles, preview_frame_num], outputs=[dynamic_face_selection, face_selection, target_faces, selected_face_detection])
     set_frame_start.click(fn=on_set_frame, inputs=[set_frame_start, preview_frame_num], outputs=[text_frame_clip])
     set_frame_end.click(fn=on_set_frame, inputs=[set_frame_end, preview_frame_num], outputs=[text_frame_clip])
@@ -373,8 +373,8 @@ def on_end_face_selection():
 
 
 def on_preview_frame_changed(frame_num, files, fake_preview, enhancer, detection, face_distance, blend_ratio,
-                              use_clip, clip_text, no_face_action, vr_mode, auto_rotate, previewimage, maskimage):
-    global SELECTED_INPUT_FACE_INDEX, is_processing, manual_masking
+                              use_clip, clip_text, no_face_action, vr_mode, auto_rotate, maskimage):
+    global SELECTED_INPUT_FACE_INDEX, manual_masking, current_video_fps
 
     from roop.core import live_swap
 
@@ -386,29 +386,33 @@ def on_preview_frame_changed(frame_num, files, fake_preview, enhancer, detection
         mask_offsets = roop.globals.INPUT_FACESETS[SELECTED_INPUT_FACE_INDEX].faces[0].mask_offsets
 
     timeinfo = '0:00:00'
-    if is_processing or files is None or selected_preview_index >= len(files) or frame_num is None:
-        return gr.Slider(info=timeinfo),None,gr.ImageEditor(visible=False), mask_offsets[0], mask_offsets[1], mask_offsets[2], mask_offsets[3]
+    if files is None or selected_preview_index >= len(files) or frame_num is None:
+        return None,None, gr.Slider(info=timeinfo)
 
     filename = files[selected_preview_index].name
     # time.sleep(0.3)
     if util.is_video(filename) or filename.lower().endswith('gif'):
         current_frame = get_video_frame(filename, frame_num)
-        secs = frame_num / current_video_fps
+        if current_video_fps == 0:
+            current_video_fps = 1
+        secs = (frame_num - 1) / current_video_fps
         minutes = secs / 60
         secs = secs % 60
         hours = minutes / 60
-        timeinfo = f"{int(hours):0>2}:{int(minutes):0>2}:{int(secs):0>2}"  
+        minutes = minutes % 60
+        milliseconds = (secs - int(secs)) * 1000
+        timeinfo = f"{int(hours):0>2}:{int(minutes):0>2}:{int(secs):0>2}.{int(milliseconds):0>3}"  
     else:
         current_frame = get_image_frame(filename)
     if current_frame is None:
-        return gr.Slider(info=timeinfo), gr.Image(visible=True), gr.ImageEditor(visible=False), mask_offsets[0], mask_offsets[1], mask_offsets[2], mask_offsets[3]
+        return None, None, gr.Slider(info=timeinfo)
     
     layers = None
     if maskimage is not None:
         layers = maskimage["layers"]
 
     if not fake_preview or len(roop.globals.INPUT_FACESETS) < 1:
-        return gr.Slider(info=timeinfo), gr.Image(value=util.convert_to_gradio(current_frame), visible=True), gr.ImageEditor(visible=False), mask_offsets[0], mask_offsets[1], mask_offsets[2], mask_offsets[3]
+        return gr.Image(value=util.convert_to_gradio(current_frame), visible=True), gr.ImageEditor(visible=False), gr.Slider(info=timeinfo)
 
     roop.globals.face_swap_mode = translate_swap_mode(detection)
     roop.globals.selected_enhancer = enhancer
@@ -425,8 +429,8 @@ def on_preview_frame_changed(frame_num, files, fake_preview, enhancer, detection
     mask = layers[0] if layers is not None else None
     current_frame = live_swap(current_frame, roop.globals.face_swap_mode, use_clip, clip_text, maskimage, SELECTED_INPUT_FACE_INDEX)
     if current_frame is None:
-        return gr.Slider(info=timeinfo), gr.Image(visible=True), gr.ImageEditor(visible=False), mask_offsets[0], mask_offsets[1], mask_offsets[2], mask_offsets[3] 
-    return gr.Slider(info=timeinfo), gr.Image(value=util.convert_to_gradio(current_frame), visible=True), gr.ImageEditor(visible=False), mask_offsets[0], mask_offsets[1], mask_offsets[2], mask_offsets[3]
+        return gr.Image(visible=True), None, gr.Slider(info=timeinfo)
+    return gr.Image(value=util.convert_to_gradio(current_frame), visible=True), gr.ImageEditor(visible=False), gr.Slider(info=timeinfo)
 
 def on_toggle_masking(previewimage, mask):
     global manual_masking
@@ -464,7 +468,7 @@ def on_preview_mask(frame_num, files, clip_text):
     from roop.core import preview_mask
     global is_processing
 
-    if is_processing:
+    if is_processing or files is None or selected_preview_index >= len(files) or clip_text is None or frame_num is None:
         return None
         
     filename = files[selected_preview_index].name
