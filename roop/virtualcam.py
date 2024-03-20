@@ -51,7 +51,7 @@ def virtualcamera(streamobs, cam_num,width,height):
             break
 
         if len(roop.globals.INPUT_FACESETS) > 0:
-            frame = live_swap(frame, "all", False, None, None)
+            frame = live_swap(frame, "all", False, None, None, False)
         #frame = fast_quantize_to_palette(frame)
         if cam:
             cam.send(frame)

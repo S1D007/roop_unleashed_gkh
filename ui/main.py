@@ -44,7 +44,9 @@ def run():
             max-height: 238.4px;
             overflow-y: auto !important;
         }
-"""
+        .image-container.svelte-1l6wqyv {height: 100%}
+
+    """
 
     while run_server:
         server_name = roop.globals.CFG.server_name

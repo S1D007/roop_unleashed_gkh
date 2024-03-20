@@ -58,6 +58,16 @@ Additional commandline arguments are currently unsupported and settings should b
 
 
 ### Changelog
+
+**20.03.2024** v3.6.3
+
+- Bugfix: Workaround for Gradio Slider Change Bug
+- Bugfix: CSS Styling to fix Gradio Image Height Bug
+- Made face swapping mask offsets resolution independant
+- Show offset mask as overlay
+- Changed layout for masking
+
+
 **18.03.2024** v3.6.0
 
 - Updated to Gradio 4.21.0 - requiring many changes under the hood

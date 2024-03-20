@@ -178,7 +178,7 @@ def get_processing_plugins(use_clip):
     return processors
 
 
-def live_swap(frame, swap_mode, use_clip, clip_text, imagemask, selected_index = 0):
+def live_swap(frame, swap_mode, use_clip, clip_text, imagemask, show_mask, selected_index = 0):
     global process_mgr
 
     if frame is None:
@@ -190,7 +190,7 @@ def live_swap(frame, swap_mode, use_clip, clip_text, imagemask, selected_index =
     if len(roop.globals.INPUT_FACESETS) <= selected_index:
         selected_index = 0
     options = ProcessOptions(get_processing_plugins(use_clip), roop.globals.distance_threshold, roop.globals.blend_ratio,
-                              swap_mode, selected_index, clip_text,imagemask)
+                              swap_mode, selected_index, clip_text,imagemask, show_mask)
     process_mgr.initialize(roop.globals.INPUT_FACESETS, roop.globals.TARGET_FACES, options)
     newframe = process_mgr.process_frame(frame)
     if newframe is None:

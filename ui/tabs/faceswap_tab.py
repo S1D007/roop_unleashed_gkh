@@ -45,11 +45,17 @@ def faceswap_tab():
                 with gr.Row():
                     with gr.Column(min_width=160):
                         input_faces = gr.Gallery(label="Input faces", allow_preview=False, preview=False, height=128, object_fit="scale-down", columns=8)
-                        with gr.Accordion(label="Advanced Settings", open=False):
-                            mask_top = gr.Slider(0, 256, value=0, label="Offset Face Top", step=1.0, interactive=True)
-                            mask_bottom = gr.Slider(0, 256, value=0, label="Offset Face Bottom", step=1.0, interactive=True)
-                            mask_left = gr.Slider(0, 256, value=0, label="Offset Face Left", step=1.0, interactive=True)
-                            mask_right = gr.Slider(0, 256, value=0, label="Offset Face Right", step=1.0, interactive=True)
+                        with gr.Accordion(label="Advanced Masking", open=False):
+                            chk_showmaskoffsets = gr.Checkbox(label="Show mask overlay in preview", value=False, interactive=True)
+                            mask_top = gr.Slider(0, 1.0, value=0, label="Offset Face Top", step=0.01, interactive=True)
+                            mask_bottom = gr.Slider(0, 1.0, value=0, label="Offset Face Bottom", step=0.01, interactive=True)
+                            mask_left = gr.Slider(0, 1.0, value=0, label="Offset Face Left", step=0.01, interactive=True)
+                            mask_right = gr.Slider(0, 1.0, value=0, label="Offset Face Right", step=0.01, interactive=True)
+                            bt_toggle_masking = gr.Button("Toggle manual masking", variant='secondary', size='sm')
+                            chk_useclip = gr.Checkbox(label="Use Text Masking", value=False)
+                            clip_text = gr.Textbox(label="List of objects to mask and restore back on fake image", value="cup,hands,hair,banana" ,elem_id='tooltip')
+                            gr.Dropdown(["Clip2Seg"], value="Clip2Seg", label="Engine")
+                            bt_preview_mask = gr.Button("👥 Show Mask Preview", variant='secondary')
                         bt_remove_selected_input_face = gr.Button("❌ Remove selected", size='sm')
                         bt_clear_input_faces = gr.Button("💥 Clear all", variant='stop', size='sm')
                     with gr.Column(min_width=160):
@@ -102,14 +108,6 @@ def faceswap_tab():
                     roop.globals.skip_audio = gr.Checkbox(label="Skip audio", value=False)
                     roop.globals.keep_frames = gr.Checkbox(label="Keep Frames (relevant only when extracting frames)", value=False)
                     roop.globals.wait_after_extraction = gr.Checkbox(label="Wait for user key press before creating video ", value=False)
-            with gr.Column(scale=1):
-                with gr.Tab("Text masking"):
-                    chk_useclip = gr.Checkbox(label="Use Text Masking", value=False)
-                    clip_text = gr.Textbox(label="List of objects to mask and restore back on fake image", value="cup,hands,hair,banana" ,elem_id='tooltip')
-                    gr.Dropdown(["Clip2Seg"], value="Clip2Seg", label="Engine")
-                    bt_preview_mask = gr.Button("👥 Show Mask Preview", variant='secondary')
-                with gr.Tab("Manual masking"):
-                    bt_toggle_masking = gr.Button("Toggle manual masking", variant='secondary', size='sm')
         with gr.Row(variant='panel'):
             with gr.Column():
                 bt_start = gr.Button("▶ Start", variant='primary')
@@ -126,16 +124,16 @@ def faceswap_tab():
                 resultvideo = gr.Video(label='Final Video', interactive=False, visible=False)
 
     previewinputs = [preview_frame_num, bt_destfiles, fake_preview, ui.globals.ui_selected_enhancer, selected_face_detection,
-                        max_face_distance, ui.globals.ui_blend_ratio, chk_useclip, clip_text, no_face_action, vr_mode, autorotate, maskimage]
+                        max_face_distance, ui.globals.ui_blend_ratio, chk_useclip, clip_text, no_face_action, vr_mode, autorotate, maskimage, chk_showmaskoffsets]
     previewoutputs = [previewimage, maskimage, preview_frame_num] 
     input_faces.select(on_select_input_face, None, None).then(fn=on_preview_frame_changed, inputs=previewinputs, outputs=previewoutputs)
     bt_remove_selected_input_face.click(fn=remove_selected_input_face, outputs=[input_faces])
     bt_srcfiles.change(fn=on_srcfile_changed, show_progress='full', inputs=bt_srcfiles, outputs=[dynamic_face_selection, face_selection, input_faces])
 
-    mask_top.input(fn=on_mask_top_changed, inputs=[mask_top], show_progress='hidden')
-    mask_bottom.input(fn=on_mask_bottom_changed, inputs=[mask_bottom], show_progress='hidden')
-    mask_left.input(fn=on_mask_left_changed, inputs=[mask_left], show_progress='hidden')
-    mask_right.input(fn=on_mask_right_changed, inputs=[mask_right], show_progress='hidden')
+    mask_top.release(fn=on_mask_top_changed, inputs=[mask_top], show_progress='hidden')
+    mask_bottom.release(fn=on_mask_bottom_changed, inputs=[mask_bottom], show_progress='hidden')
+    mask_left.release(fn=on_mask_left_changed, inputs=[mask_left], show_progress='hidden')
+    mask_right.release(fn=on_mask_right_changed, inputs=[mask_right], show_progress='hidden')
 
 
     target_faces.select(on_select_target_face, None, None)
@@ -192,7 +190,15 @@ def set_mask_offset(index, mask_offset):
     global SELECTED_INPUT_FACE_INDEX
 
     if len(roop.globals.INPUT_FACESETS) > SELECTED_INPUT_FACE_INDEX:
-        roop.globals.INPUT_FACESETS[SELECTED_INPUT_FACE_INDEX].faces[0].mask_offsets[index] = mask_offset
+        offs = roop.globals.INPUT_FACESETS[SELECTED_INPUT_FACE_INDEX].faces[0].mask_offsets
+        offs[index] = mask_offset
+        if offs[0] + offs[1] > 0.99:
+            offs[0] = 0.99
+            offs[1] = 0.0
+        if offs[2] + offs[3] > 0.99:
+            offs[2] = 0.99
+            offs[3] = 0.0
+        roop.globals.INPUT_FACESETS[SELECTED_INPUT_FACE_INDEX].faces[0].mask_offsets = offs
 
 
 
@@ -373,7 +379,7 @@ def on_end_face_selection():
 
 
 def on_preview_frame_changed(frame_num, files, fake_preview, enhancer, detection, face_distance, blend_ratio,
-                              use_clip, clip_text, no_face_action, vr_mode, auto_rotate, maskimage):
+                              use_clip, clip_text, no_face_action, vr_mode, auto_rotate, maskimage, show_mask):
     global SELECTED_INPUT_FACE_INDEX, manual_masking, current_video_fps
 
     from roop.core import live_swap
@@ -427,7 +433,7 @@ def on_preview_frame_changed(frame_num, files, fake_preview, enhancer, detection
 
     roop.globals.execution_threads = roop.globals.CFG.max_threads
     mask = layers[0] if layers is not None else None
-    current_frame = live_swap(current_frame, roop.globals.face_swap_mode, use_clip, clip_text, maskimage, SELECTED_INPUT_FACE_INDEX)
+    current_frame = live_swap(current_frame, roop.globals.face_swap_mode, use_clip, clip_text, maskimage, show_mask, SELECTED_INPUT_FACE_INDEX)
     if current_frame is None:
         return gr.Image(visible=True), None, gr.Slider(info=timeinfo)
     return gr.Image(value=util.convert_to_gradio(current_frame), visible=True), gr.ImageEditor(visible=False), gr.Slider(info=timeinfo)
