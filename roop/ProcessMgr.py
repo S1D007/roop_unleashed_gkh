@@ -116,13 +116,16 @@ class ProcessMgr():
 
 
         if self.options.imagemask is not None and "layers" in self.options.imagemask and len(self.options.imagemask["layers"]) > 0:
-            self.options.imagemask = self.options.imagemask["layers"][0]
+            self.options.imagemask  = self.options.imagemask["layers"][0]
             # Get rid of alpha
-            self.options.imagemask = cv2.cvtColor(self.options.imagemask, cv2.COLOR_RGBA2RGB)
+            self.options.imagemask = cv2.cvtColor(self.options.imagemask, cv2.COLOR_RGBA2GRAY)
             if np.any(self.options.imagemask):
-                mask_blur = 5
-                self.options.imagemask = cv2.GaussianBlur(self.options.imagemask, (mask_blur*2+1,mask_blur*2+1), 0)
+                mo = self.input_face_datas[0].faces[0].mask_offsets
+                self.options.imagemask = self.blur_area(self.options.imagemask, mo[4], mo[5])
                 self.options.imagemask = self.options.imagemask.astype(np.float32) / 255
+                self.options.imagemask = cv2.cvtColor(self.options.imagemask, cv2.COLOR_GRAY2RGB)
+                #mask_blur = 5
+                #self.options.imagemask = cv2.GaussianBlur(self.options.imagemask, (mask_blur*2+1,mask_blur*2+1), 0)
             else:
                 self.options.imagemask = None
  
@@ -263,7 +266,6 @@ class ProcessMgr():
     def update_progress(self, progress: Any = None) -> None:
         process = psutil.Process(os.getpid())
         memory_usage = process.memory_info().rss / 1024 / 1024 / 1024
-        msg = 'memory_usage: ' + '{:.2f}'.format(memory_usage).zfill(5) + f' GB execution_threads {self.num_threads}'
         progress.set_postfix({
             'memory_usage': '{:.2f}'.format(memory_usage).zfill(5) + 'GB',
             'execution_threads': self.num_threads
@@ -555,8 +557,9 @@ class ProcessMgr():
         M_scale = M * scale_factor
         IM = cv2.invertAffineTransform(M_scale)
 
-        ##Generate white square sized as a upsk_face
-        img_matte = np.full((upsk_face.shape[0],upsk_face.shape[1]), 0, dtype=np.uint8)
+        face_matte = np.full((target_img.shape[0],target_img.shape[1]), 255, dtype=np.uint8)
+        # Generate white square sized as a upsk_face
+        img_matte = np.zeros((upsk_face.shape[0],upsk_face.shape[1]), dtype=np.uint8)
 
         w = img_matte.shape[1]
         h = img_matte.shape[0]
@@ -567,37 +570,55 @@ class ProcessMgr():
         right = int(w - (mask_offsets[3] * w))
         img_matte[top:bottom,left:right] = 255
 
-        ##Transform white square back to target_img
+        # Transform white square back to target_img
         img_matte = cv2.warpAffine(img_matte, IM, (target_img.shape[1], target_img.shape[0]), flags=cv2.INTER_NEAREST, borderValue=0.0) 
+        ##Blacken the edges of face_matte by 1 pixels (so the mask in not expanded on the image edges)
         img_matte[:1,:] = img_matte[-1:,:] = img_matte[:,:1] = img_matte[:,-1:] = 0
 
-        # Normalize and blur img_matte as before
-        k = max(int(np.sqrt(np.max(np.where(img_matte==255)) - np.min(np.where(img_matte==255)))//10), 10)
-        kernel_size = (k, k)
-        blur_size = tuple(2*i+1 for i in kernel_size)
-        img_matte = cv2.GaussianBlur(img_matte, blur_size, 0)
+        img_matte = self.blur_area(img_matte, mask_offsets[4], mask_offsets[5])
+        #Normalize images to float values and reshape
         img_matte = img_matte.astype(np.float32)/255
+        face_matte = face_matte.astype(np.float32)/255
+        img_matte = np.minimum(face_matte, img_matte)
         if self.options.show_mask:
             # Additional steps for green overlay
             green_overlay = np.zeros_like(target_img)
             green_color = [0, 255, 0]  # RGB for green
             for i in range(3):  # Apply green color where img_matte is not zero
-                green_overlay[:, :, i] = np.where(img_matte > 0, green_color[i], 0)
+                green_overlay[:, :, i] = np.where(img_matte > 0, green_color[i], 0)        ##Transform upcaled face back to target_img
         img_matte = np.reshape(img_matte, [img_matte.shape[0],img_matte.shape[1],1]) 
-
-        # Transform upsk_face and optionally blend with fake_face
         paste_face = cv2.warpAffine(upsk_face, IM, (target_img.shape[1], target_img.shape[0]), borderMode=cv2.BORDER_REPLICATE)
         if upsk_face is not fake_face:
             fake_face = cv2.warpAffine(fake_face, IM, (target_img.shape[1], target_img.shape[0]), borderMode=cv2.BORDER_REPLICATE)
             paste_face = cv2.addWeighted(paste_face, self.options.blend_ratio, fake_face, 1.0 - self.options.blend_ratio, 0)
 
         # Re-assemble image
-        paste_face = img_matte * paste_face + (1-img_matte) * target_img.astype(np.float32)
-
+        paste_face = img_matte * paste_face
+        paste_face = paste_face + (1-img_matte) * target_img.astype(np.float32)
         if self.options.show_mask:
             # Overlay the green overlay on the final image
             paste_face = cv2.addWeighted(paste_face.astype(np.uint8), 1 - 0.5, green_overlay, 0.5, 0)
         return paste_face.astype(np.uint8)
+
+
+    def blur_area(self, img_matte, num_erosion_iterations, blur_amount):
+        # Detect the affine transformed white area
+        mask_h_inds, mask_w_inds = np.where(img_matte==255) 
+        # Calculate the size (and diagonal size) of transformed white area width and height boundaries
+        mask_h = np.max(mask_h_inds) - np.min(mask_h_inds) 
+        mask_w = np.max(mask_w_inds) - np.min(mask_w_inds)
+        mask_size = int(np.sqrt(mask_h*mask_w))
+        # Calculate the kernel size for eroding img_matte by kernel (insightface empirical guess for best size was max(mask_size//10,10))
+        # k = max(mask_size//12, 8)
+        k = max(mask_size//(blur_amount // 2) , blur_amount // 2)
+        kernel = np.ones((k,k),np.uint8)
+        img_matte = cv2.erode(img_matte,kernel,iterations = num_erosion_iterations)
+        #Calculate the kernel size for blurring img_matte by blur_size (insightface empirical guess for best size was max(mask_size//20, 5))
+        # k = max(mask_size//24, 4) 
+        k = max(mask_size//blur_amount, blur_amount//5) 
+        kernel_size = (k, k)
+        blur_size = tuple(2*i+1 for i in kernel_size)
+        return cv2.GaussianBlur(img_matte, blur_size, 0)
 
 
     def process_mask(self, processor, frame:Frame, target:Frame):

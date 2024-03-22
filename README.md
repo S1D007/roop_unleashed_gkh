@@ -59,6 +59,14 @@ Additional commandline arguments are currently unsupported and settings should b
 
 ### Changelog
 
+**22.03.2024** v3.6.5
+
+- Bugfix: Installer pulling latest update on first installation
+- Bugfix: Regression issue, blurring/erosion missing from face swap
+- Exposed erosion and blur amounts to UI
+- Using same values for manual masking too
+
+
 **20.03.2024** v3.6.3
 
 - Bugfix: Workaround for Gradio Slider Change Bug

@@ -51,6 +51,8 @@ def faceswap_tab():
                             mask_bottom = gr.Slider(0, 1.0, value=0, label="Offset Face Bottom", step=0.01, interactive=True)
                             mask_left = gr.Slider(0, 1.0, value=0, label="Offset Face Left", step=0.01, interactive=True)
                             mask_right = gr.Slider(0, 1.0, value=0, label="Offset Face Right", step=0.01, interactive=True)
+                            mask_erosion = gr.Slider(1.0, 3.0, value=1.0, label="Erosion Iterations", step=1.00, interactive=True)
+                            mask_blur = gr.Slider(10.0, 50.0, value=20.0, label="Blur size", step=1.00, interactive=True)
                             bt_toggle_masking = gr.Button("Toggle manual masking", variant='secondary', size='sm')
                             chk_useclip = gr.Checkbox(label="Use Text Masking", value=False)
                             clip_text = gr.Textbox(label="List of objects to mask and restore back on fake image", value="cup,hands,hair,banana" ,elem_id='tooltip')
@@ -134,6 +136,8 @@ def faceswap_tab():
     mask_bottom.release(fn=on_mask_bottom_changed, inputs=[mask_bottom], show_progress='hidden')
     mask_left.release(fn=on_mask_left_changed, inputs=[mask_left], show_progress='hidden')
     mask_right.release(fn=on_mask_right_changed, inputs=[mask_right], show_progress='hidden')
+    mask_erosion.release(fn=on_mask_erosion_changed, inputs=[mask_erosion], show_progress='hidden')
+    mask_blur.release(fn=on_mask_blur_changed, inputs=[mask_blur], show_progress='hidden')
 
 
     target_faces.select(on_select_target_face, None, None)
@@ -184,6 +188,11 @@ def on_mask_left_changed(mask_offset):
 
 def on_mask_right_changed(mask_offset):
     set_mask_offset(3, mask_offset)
+
+def on_mask_erosion_changed(mask_offset):
+    set_mask_offset(4, mask_offset)
+def on_mask_blur_changed(mask_offset):
+    set_mask_offset(5, mask_offset)
 
 
 def set_mask_offset(index, mask_offset):
@@ -241,7 +250,7 @@ def on_srcfile_changed(srcfiles, progress=gr.Progress()):
                     SELECTION_FACES_DATA = extract_face_images(filename,  (False, 0))
                     for f in SELECTION_FACES_DATA:
                         face = f[0]
-                        face.mask_offsets = (0,0,0,0)
+                        face.mask_offsets = (0,0,0,0,1,20)
                         face_set.faces.append(face)
                         if is_first: 
                             image = util.convert_to_gradio(f[1])
@@ -261,7 +270,7 @@ def on_srcfile_changed(srcfiles, progress=gr.Progress()):
             for f in SELECTION_FACES_DATA:
                 face_set = FaceSet()
                 face = f[0]
-                face.mask_offsets = (0,0,0,0)
+                face.mask_offsets = (0,0,0,0,1,20)
                 face_set.faces.append(face)
                 image = util.convert_to_gradio(f[1])
                 ui.globals.ui_input_thumbs.append(image)
@@ -362,7 +371,7 @@ def on_selected_face():
     image = util.convert_to_gradio(fd[1])
     if IS_INPUT:
         face_set = FaceSet()
-        fd[0].mask_offsets = (0,0,0,0)
+        fd[0].mask_offsets = (0,0,0,0,1,20)
         face_set.faces.append(fd[0])
         roop.globals.INPUT_FACESETS.append(face_set)
         ui.globals.ui_input_thumbs.append(image)
