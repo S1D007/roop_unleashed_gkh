@@ -153,7 +153,8 @@ class ProcessMgr():
             if not roop.globals.processing:
                 return
             
-            temp_frame = cv2.imread(f)
+            # Decode the byte array into an OpenCV image
+            temp_frame = cv2.imdecode(np.fromfile(f, dtype=np.uint8), cv2.IMREAD_UNCHANGED)
             if temp_frame is not None:
                 resimg = self.process_frame(temp_frame)
                 if resimg is not None:

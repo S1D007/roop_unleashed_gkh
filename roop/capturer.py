@@ -1,12 +1,12 @@
 from typing import Optional
 import cv2
+import numpy as np
 
 from roop.typing import Frame
 
 def get_image_frame(filename: str):
     try:
-        frame = cv2.imread(filename)
-        return frame
+        return cv2.imdecode(np.fromfile(filename, dtype=np.uint8), cv2.IMREAD_UNCHANGED)
     except:
         print(f"Exception reading {filename}")
     return None
