@@ -162,7 +162,7 @@ def faceswap_tab():
     start_event = bt_start.click(fn=start_swap, 
         inputs=[ui.globals.ui_selected_enhancer, selected_face_detection, roop.globals.keep_frames, roop.globals.wait_after_extraction,
                     roop.globals.skip_audio, max_face_distance, ui.globals.ui_blend_ratio, chk_useclip, clip_text,video_swapping_method, no_face_action, vr_mode, autorotate, maskimage],
-        outputs=[bt_start, bt_stop, resultfiles])
+        outputs=[bt_start, bt_stop, resultfiles], show_progress='full')
     after_swap_event = start_event.then(fn=on_resultfiles_finished, inputs=[resultfiles], outputs=[resultimage, resultvideo])
     
     bt_stop.click(fn=stop_swap, cancels=[start_event, after_swap_event], outputs=[bt_start, bt_stop], queue=False)
@@ -231,7 +231,7 @@ def on_srcfile_changed(srcfiles, progress=gr.Progress()):
     for f in srcfiles:    
         source_path = f.name
         if source_path.lower().endswith('fsz'):
-            progress(0, desc="Retrieving faces from Faceset File", )      
+            progress(0, desc="Retrieving faces from Faceset File")      
             unzipfolder = os.path.join(os.environ["TEMP"], 'faceset')
             if os.path.isdir(unzipfolder):
                 files = os.listdir(unzipfolder)
@@ -263,7 +263,7 @@ def on_srcfile_changed(srcfiles, progress=gr.Progress()):
                 roop.globals.INPUT_FACESETS.append(face_set)
                                         
         elif util.has_image_extension(source_path):
-            progress(0, desc="Retrieving faces from image", )      
+            progress(0, desc="Retrieving faces from image")      
             roop.globals.source_path = source_path
             SELECTION_FACES_DATA = extract_face_images(roop.globals.source_path,  (False, 0))
             progress(0.5, desc="Retrieving faces from image")
@@ -529,7 +529,7 @@ def translate_swap_mode(dropdown_text):
 
 
 def start_swap( enhancer, detection, keep_frames, wait_after_extraction, skip_audio, face_distance, blend_ratio,
-                use_clip, clip_text, processing_method, no_face_action, vr_mode, autorotate, imagemask, progress=gr.Progress(track_tqdm=False)):
+                use_clip, clip_text, processing_method, no_face_action, vr_mode, autorotate, imagemask, progress=gr.Progress()):
     from ui.main import prepare_environment
     from roop.core import batch_process
     global is_processing, list_files_process
