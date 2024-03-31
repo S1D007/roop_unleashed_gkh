@@ -645,21 +645,11 @@ def on_destfiles_selected(evt: gr.SelectData):
     return gr.Slider(value=1, maximum=total_frames, info='0:00:00'), gen_processing_text(0,0), fps
     
     
-    
 
 def on_resultfiles_selected(evt: gr.SelectData, files):
     selected_index = evt.index
     filename = files[selected_index].name
-    if util.is_video(filename):
-        return gr.Image(visible=False), gr.Video(visible=True, value=filename)
-    else:
-        if filename.lower().endswith('gif'):
-            current_frame = get_video_frame(filename)
-        else:
-            current_frame = get_image_frame(filename)
-        return gr.Image(visible=True, value=util.convert_to_gradio(current_frame)), gr.Video(visible=False)
-
-
+    return display_output(filename)
 
 def on_resultfiles_finished(files):
     selected_index = 0
@@ -667,10 +657,14 @@ def on_resultfiles_finished(files):
         return None, None
     
     filename = files[selected_index].name
-    if util.is_video(filename):
+    return display_output(filename)
+
+
+def display_output(filename):
+    if util.is_video(filename) and roop.globals.CFG.output_show_video:
         return gr.Image(visible=False), gr.Video(visible=True, value=filename)
     else:
-        if filename.lower().endswith('gif'):
+        if util.is_video(filename) or filename.lower().endswith('gif'):
             current_frame = get_video_frame(filename)
         else:
             current_frame = get_image_frame(filename)

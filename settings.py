@@ -36,6 +36,7 @@ class Settings:
         self.force_cpu = self.default_get(data, 'force_cpu', False)
         self.output_template = self.default_get(data, 'output_template', '{file}_{time}')
         self.use_os_temp_folder = self.default_get(data, 'use_os_temp_folder', False)
+        self.output_show_video = self.default_get(data, 'output_show_video', True)
 
 
 
@@ -57,7 +58,8 @@ class Settings:
             'provider' : self.provider,
             'force_cpu' : self.force_cpu,
 			'output_template' : self.output_template,
-            'use_os_temp_folder' : self.use_os_temp_folder
+            'use_os_temp_folder' : self.use_os_temp_folder,
+            'output_show_video' : self.output_show_video
         }
         with open(self.config_file, 'w') as f:
             yaml.dump(data, f)
