@@ -6,7 +6,7 @@ from roop.typing import Frame
 
 def get_image_frame(filename: str):
     try:
-        return cv2.imdecode(np.fromfile(filename, dtype=np.uint8), cv2.IMREAD_UNCHANGED)
+        return cv2.imdecode(np.fromfile(filename, dtype=np.uint8), cv2.IMREAD_COLOR)
     except:
         print(f"Exception reading {filename}")
     return None

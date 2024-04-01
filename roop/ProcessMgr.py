@@ -115,8 +115,8 @@ class ProcessMgr():
                         print(f"Not using {module}")
 
 
-        if self.options.imagemask is not None and "layers" in self.options.imagemask and len(self.options.imagemask["layers"]) > 0:
-            self.options.imagemask  = self.options.imagemask["layers"][0]
+        if isinstance(self.options.imagemask, dict) and self.options.imagemask.get("layers") and len(self.options.imagemask["layers"]) > 0:
+            self.options.imagemask  = self.options.imagemask.get("layers")[0]
             # Get rid of alpha
             self.options.imagemask = cv2.cvtColor(self.options.imagemask, cv2.COLOR_RGBA2GRAY)
             if np.any(self.options.imagemask):
@@ -124,8 +124,6 @@ class ProcessMgr():
                 self.options.imagemask = self.blur_area(self.options.imagemask, mo[4], mo[5])
                 self.options.imagemask = self.options.imagemask.astype(np.float32) / 255
                 self.options.imagemask = cv2.cvtColor(self.options.imagemask, cv2.COLOR_GRAY2RGB)
-                #mask_blur = 5
-                #self.options.imagemask = cv2.GaussianBlur(self.options.imagemask, (mask_blur*2+1,mask_blur*2+1), 0)
             else:
                 self.options.imagemask = None
  
@@ -154,7 +152,7 @@ class ProcessMgr():
                 return
             
             # Decode the byte array into an OpenCV image
-            temp_frame = cv2.imdecode(np.fromfile(f, dtype=np.uint8), cv2.IMREAD_UNCHANGED)
+            temp_frame = cv2.imdecode(np.fromfile(f, dtype=np.uint8), cv2.IMREAD_COLOR)
             if temp_frame is not None:
                 resimg = self.process_frame(temp_frame)
                 if resimg is not None:

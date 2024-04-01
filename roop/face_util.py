@@ -71,7 +71,7 @@ def extract_face_images(source_filename, video_info, extra_padding=-1.0):
         else:
             return face_data
     else:
-        source_image = cv2.imdecode(np.fromfile(source_filename, dtype=np.uint8), cv2.IMREAD_UNCHANGED)
+        source_image = cv2.imdecode(np.fromfile(source_filename, dtype=np.uint8), cv2.IMREAD_COLOR)
 
     faces = get_all_faces(source_image)
     if faces is None:
