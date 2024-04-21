@@ -64,6 +64,7 @@ class ProcessMgr():
     plugins =  { 
     'faceswap'          : 'FaceSwapInsightFace',
     'mask_clip2seg'     : 'Mask_Clip2Seg',
+    'mask_xseg'         : 'Mask_XSeg',
     'codeformer'        : 'Enhance_CodeFormer',
     'gfpgan'            : 'Enhance_GFPGAN',
     'dmdnet'            : 'Enhance_DMDNet',
@@ -343,7 +344,8 @@ class ProcessMgr():
                     del face
             
             elif self.options.swap_mode == "selected":
-                use_index = len(self.target_face_datas) == 1
+                num_targetfaces = len(self.target_face_datas) 
+                use_index = num_targetfaces == 1
                 for i,tf in enumerate(self.target_face_datas):
                     for face in faces:
                         if compute_cosine_distance(tf.embedding, face.embedding) <= self.options.face_distance_threshold:
@@ -353,9 +355,9 @@ class ProcessMgr():
                                 else:
                                     temp_frame = self.process_face(i, face, temp_frame)
                                 num_faces_found += 1
-                            if not roop.globals.vr_mode:
+                            del face
+                            if not roop.globals.vr_mode and num_faces_found == num_targetfaces:
                                 break
-                        del face
             elif self.options.swap_mode == "all_female" or self.options.swap_mode == "all_male":
                 gender = 'F' if self.options.swap_mode == "all_female" else 'M'
                 for face in faces:
@@ -371,13 +373,13 @@ class ProcessMgr():
         if num_faces_found == 0:
             return num_faces_found, frame
 
-        maskprocessor = next((x for x in self.processors if x.processorname == 'clip2seg'), None)
+        #maskprocessor = next((x for x in self.processors if x.type == 'mask'), None)
 
         if self.options.imagemask is not None and self.options.imagemask.shape == frame.shape:
             temp_frame = self.simple_blend_with_mask(temp_frame, frame, self.options.imagemask)
 
-        if maskprocessor is not None:
-            temp_frame = self.process_mask(maskprocessor, frame, temp_frame)
+        #if maskprocessor is not None:
+        #    temp_frame = self.process_mask(maskprocessor, frame, temp_frame)
         return num_faces_found, temp_frame
 
 
@@ -446,6 +448,8 @@ class ProcessMgr():
 
 
     def process_face(self,face_index, target_face:Face, frame:Frame):
+        from roop.face_util import align_crop
+
         enhanced_frame = None
         inputface = self.input_face_datas[face_index].faces[0]
 
@@ -496,12 +500,14 @@ class ProcessMgr():
             # img = vr.GetPerspective(frame, 90, theta, phi, 1280, 1280)  # Generate perspective image
 
         fake_frame = None
+        aligned_img, M = align_crop(frame, target_face.kps, 128)
+        target_face.matrix = M
         for p in self.processors:
             if p.type == 'swap':
-                fake_frame = p.Run(inputface, target_face, frame)
+                fake_frame = p.Run(inputface, target_face, aligned_img)
                 scale_factor = 0.0
             elif p.type == 'mask':
-                continue
+                fake_frame = self.process_mask(p, aligned_img, fake_frame)
             else:
                 enhanced_frame, scale_factor = p.Run(self.input_face_datas[face_index], target_face, fake_frame)
 
@@ -622,12 +628,19 @@ class ProcessMgr():
 
     def process_mask(self, processor, frame:Frame, target:Frame):
         img_mask = processor.Run(frame, self.options.masking_text)
+        test = img_mask * 255.0
         img_mask = cv2.resize(img_mask, (target.shape[1], target.shape[0]))
         img_mask = np.reshape(img_mask, [img_mask.shape[0],img_mask.shape[1],1])
+        #test = img_mask * 255.0
+        #cv2.imwrite("mask1.png", test)
 
         target = target.astype(np.float32)
         result = (1-img_mask) * target
+        #cv2.imwrite("mask_f1.png", result)
+
         result += img_mask * frame.astype(np.float32)
+        #cv2.imwrite("mask_f2.png", result)
+
         return np.uint8(result)
 
             
