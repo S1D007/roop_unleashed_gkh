@@ -11,7 +11,8 @@ cam_thread = None
 vcam = None
 
 def virtualcamera(streamobs, cam_num,width,height):
-    from roop.core import live_swap
+    from roop.ProcessOptions import ProcessOptions
+    from roop.core import live_swap, get_processing_plugins
     from roop.filters import fast_quantize_to_palette
 
     global cam_active
@@ -51,7 +52,9 @@ def virtualcamera(streamobs, cam_num,width,height):
             break
 
         if len(roop.globals.INPUT_FACESETS) > 0:
-            frame = live_swap(frame, "all", None, None, None, False)
+            options = ProcessOptions(get_processing_plugins(None), roop.globals.distance_threshold, roop.globals.blend_ratio,
+                              "all", 0, None, None, 1, False)
+            frame = live_swap(frame, "all", options)
         #frame = fast_quantize_to_palette(frame)
         if cam:
             cam.send(frame)

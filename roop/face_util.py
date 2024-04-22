@@ -80,6 +80,7 @@ def extract_face_images(source_filename, video_info, extra_padding=-1.0):
     i = 0
     for face in faces:
         (startX, startY, endX, endY) = face["bbox"].astype("int")
+        startX, endX, startY, endY = clamp_cut_values(startX, endX, startY, endY, source_image)
         if extra_padding > 0.0:
             if source_image.shape[:2] == (512, 512):
                 i += 1
@@ -89,6 +90,7 @@ def extract_face_images(source_filename, video_info, extra_padding=-1.0):
             found = False
             for i in range(1, 3):
                 (startX, startY, endX, endY) = face["bbox"].astype("int")
+                startX, endX, startY, endY = clamp_cut_values(startX, endX, startY, endY, source_image)
                 cutout_padding = extra_padding
                 # top needs extra room for detection
                 padding = int((endY - startY) * cutout_padding)

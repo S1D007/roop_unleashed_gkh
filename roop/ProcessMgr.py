@@ -296,7 +296,7 @@ class ProcessMgr():
         use_original_frame = 0
         skip_frame = 2
 
-        if len(self.input_face_datas) < 1:
+        if len(self.input_face_datas) < 1 and not self.options.show_face_masking:
             return frame
         temp_frame = frame.copy()
         num_swapped, temp_frame = self.swap_faces(frame, temp_frame)
@@ -451,7 +451,10 @@ class ProcessMgr():
         from roop.face_util import align_crop
 
         enhanced_frame = None
-        inputface = self.input_face_datas[face_index].faces[0]
+        if(len(self.input_face_datas) > 0):
+            inputface = self.input_face_datas[face_index].faces[0]
+        else:
+            inputface = None
 
         rotation_action = None
         if roop.globals.autorotate_faces:
@@ -501,10 +504,15 @@ class ProcessMgr():
 
         fake_frame = None
         aligned_img, M = align_crop(frame, target_face.kps, 128)
+        fake_frame = aligned_img
+        swap_frame = aligned_img
         target_face.matrix = M
         for p in self.processors:
             if p.type == 'swap':
-                fake_frame = p.Run(inputface, target_face, aligned_img)
+                if inputface is not None:
+                    for _ in range(0,self.options.num_swap_steps):
+                        swap_frame = p.Run(inputface, target_face, swap_frame)
+                fake_frame = swap_frame
                 scale_factor = 0.0
             elif p.type == 'mask':
                 fake_frame = self.process_mask(p, aligned_img, fake_frame)
@@ -515,7 +523,7 @@ class ProcessMgr():
         orig_width = fake_frame.shape[1]
 
         fake_frame = cv2.resize(fake_frame, (upscale, upscale), cv2.INTER_CUBIC)
-        mask_offsets = inputface.mask_offsets
+        mask_offsets = (0,0,0,0,1,20) if inputface is None else inputface.mask_offsets
 
         
         if enhanced_frame is None:
@@ -585,7 +593,7 @@ class ProcessMgr():
         img_matte = img_matte.astype(np.float32)/255
         face_matte = face_matte.astype(np.float32)/255
         img_matte = np.minimum(face_matte, img_matte)
-        if self.options.show_mask:
+        if self.options.show_face_area_overlay:
             # Additional steps for green overlay
             green_overlay = np.zeros_like(target_img)
             green_color = [0, 255, 0]  # RGB for green
@@ -600,7 +608,7 @@ class ProcessMgr():
         # Re-assemble image
         paste_face = img_matte * paste_face
         paste_face = paste_face + (1-img_matte) * target_img.astype(np.float32)
-        if self.options.show_mask:
+        if self.options.show_face_area_overlay:
             # Overlay the green overlay on the final image
             paste_face = cv2.addWeighted(paste_face.astype(np.uint8), 1 - 0.5, green_overlay, 0.5, 0)
         return paste_face.astype(np.uint8)
@@ -628,19 +636,17 @@ class ProcessMgr():
 
     def process_mask(self, processor, frame:Frame, target:Frame):
         img_mask = processor.Run(frame, self.options.masking_text)
-        test = img_mask * 255.0
         img_mask = cv2.resize(img_mask, (target.shape[1], target.shape[0]))
         img_mask = np.reshape(img_mask, [img_mask.shape[0],img_mask.shape[1],1])
-        #test = img_mask * 255.0
-        #cv2.imwrite("mask1.png", test)
+
+        if self.options.show_face_masking:
+            result = (1 - img_mask) * frame.astype(np.float32)
+            return np.uint8(result)
+
 
         target = target.astype(np.float32)
         result = (1-img_mask) * target
-        #cv2.imwrite("mask_f1.png", result)
-
         result += img_mask * frame.astype(np.float32)
-        #cv2.imwrite("mask_f2.png", result)
-
         return np.uint8(result)
 
             

@@ -14,8 +14,8 @@ Uncensored Deepfakes for images and videos without training and an easy-to-use G
 - Selection of multiple input/output faces in one go
 - Many different swapping modes, first detected, face selections, by gender
 - Batch processing of images/videos
-- Masking of face occluders using text prompts
-- Optional Face Restoration using different enhancers
+- Masking of face occluders using text prompts or automatically
+- Optional Face Upscaler/Restoration using different enhancers
 - Preview swapping from different video frames
 - Live Fake Cam using your webcam
 - Extras Tab for cutting videos etc.
@@ -126,16 +126,17 @@ Initial Gradio Version - old TkInter Version now deprecated
 
 # Acknowledgements
 
-Lots of ideas, code or pre-trained models used from the following projects:
+Lots of ideas, code or pre-trained models borrowed from the following projects:
 
 https://github.com/deepinsight/insightface<br />
 https://github.com/s0md3v/roop<br />
 https://github.com/AUTOMATIC1111/stable-diffusion-webui<br /> 
 https://github.com/Hillobar/Rope<br />
-https://github.com/janvarev/chain-img-processor<br />
 https://github.com/TencentARC/GFPGAN<br />   
 https://github.com/kadirnar/codeformer-pip<br />
 https://github.com/csxmli2016/DMDNet<br />
+https://github.com/glucauze/sd-webui-faceswaplab<br />
+
 <br />
 <br />
 Thanks to all developers!

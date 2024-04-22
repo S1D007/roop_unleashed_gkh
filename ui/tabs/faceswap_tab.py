@@ -8,6 +8,7 @@ import ui.globals
 from roop.face_util import extract_face_images, create_blank_image
 from roop.capturer import get_video_frame, get_video_frame_total, get_image_frame
 from roop.ProcessEntry import ProcessEntry
+from roop.ProcessOptions import ProcessOptions
 from roop.FaceSet import FaceSet
 
 last_image = None
@@ -54,8 +55,8 @@ def faceswap_tab():
                             mask_erosion = gr.Slider(1.0, 3.0, value=1.0, label="Erosion Iterations", step=1.00, interactive=True)
                             mask_blur = gr.Slider(10.0, 50.0, value=20.0, label="Blur size", step=1.00, interactive=True)
                             bt_toggle_masking = gr.Button("Toggle manual masking", variant='secondary', size='sm')
-                            clip_text = gr.Textbox(label="List of objects to mask and restore back on fake image", value="cup,hands,hair,banana" ,elem_id='tooltip')
                             selected_mask_engine = gr.Dropdown(["None", "Clip2Seg", "DFL XSeg"], value="None", label="Face masking engine")
+                            clip_text = gr.Textbox(label="List of objects to mask and restore back on fake face", value="cup,hands,hair,banana", interactive=False)
                             bt_preview_mask = gr.Button("👥 Show Mask Preview", variant='secondary')
                         bt_remove_selected_input_face = gr.Button("❌ Remove selected", size='sm')
                         bt_clear_input_faces = gr.Button("💥 Clear all", variant='stop', size='sm')
@@ -97,18 +98,32 @@ def faceswap_tab():
         with gr.Row(variant='panel'):
             with gr.Column(scale=1):
                 selected_face_detection = gr.Dropdown(["First found", "All female", "All male", "All faces", "Selected face"], value="First found", label="Specify face selection for swapping")
-                max_face_distance = gr.Slider(0.01, 1.0, value=0.65, label="Max Face Similarity Threshold")
+            with gr.Column(scale=1):
+                ui.globals.ui_selected_enhancer = gr.Dropdown(["None", "Codeformer", "DMDNet", "GFPGAN", "GPEN", "Restoreformer++"], value="None", label="Select post-processing")
+
+        with gr.Row(variant='panel'):
+            with gr.Column(scale=1):
+                max_face_distance = gr.Slider(0.01, 1.0, value=0.65, label="Max Face Similarity Threshold", info="0.0 = identical 1.0 = no similarity")
+            with gr.Column(scale=1):
+                num_swap_steps = gr.Slider(1, 5, value=1, step=1.0, label="Number of swapping steps", info="More steps can increase likeness")
+            with gr.Column(scale=2):
+                ui.globals.ui_blend_ratio = gr.Slider(0.0, 1.0, value=0.65, label="Original/Enhanced image blend ratio", info="Only used with active post-processing")
+
+
+        with gr.Row(variant='panel'):
+            with gr.Column(scale=1):
                 video_swapping_method = gr.Dropdown(["Extract Frames to media","In-Memory processing"], value="In-Memory processing", label="Select video processing method", interactive=True)
                 no_face_action = gr.Dropdown(choices=no_face_choices, value=no_face_choices[0], label="Action on no face detected", interactive=True)
                 vr_mode = gr.Checkbox(label="VR Mode", value=False)
             with gr.Column(scale=1):
-                ui.globals.ui_selected_enhancer = gr.Dropdown(["None", "Codeformer", "DMDNet", "GFPGAN", "GPEN", "Restoreformer++"], value="None", label="Select post-processing")
-                ui.globals.ui_blend_ratio = gr.Slider(0.0, 1.0, value=0.65, label="Original/Enhanced image blend ratio")
                 with gr.Group():
                     autorotate = gr.Checkbox(label="Auto rotate horizontal Faces", value=True)
                     roop.globals.skip_audio = gr.Checkbox(label="Skip audio", value=False)
                     roop.globals.keep_frames = gr.Checkbox(label="Keep Frames (relevant only when extracting frames)", value=False)
                     roop.globals.wait_after_extraction = gr.Checkbox(label="Wait for user key press before creating video ", value=False)
+
+
+
         with gr.Row(variant='panel'):
             with gr.Column():
                 bt_start = gr.Button("▶ Start", variant='primary')
@@ -125,7 +140,7 @@ def faceswap_tab():
                 resultvideo = gr.Video(label='Final Video', interactive=False, visible=False)
 
     previewinputs = [preview_frame_num, bt_destfiles, fake_preview, ui.globals.ui_selected_enhancer, selected_face_detection,
-                        max_face_distance, ui.globals.ui_blend_ratio, selected_mask_engine, clip_text, no_face_action, vr_mode, autorotate, maskimage, chk_showmaskoffsets]
+                        max_face_distance, ui.globals.ui_blend_ratio, selected_mask_engine, clip_text, no_face_action, vr_mode, autorotate, maskimage, chk_showmaskoffsets, num_swap_steps]
     previewoutputs = [previewimage, maskimage, preview_frame_num] 
     input_faces.select(on_select_input_face, None, None).then(fn=on_preview_frame_changed, inputs=previewinputs, outputs=previewoutputs)
     bt_remove_selected_input_face.click(fn=remove_selected_input_face, outputs=[input_faces])
@@ -137,6 +152,7 @@ def faceswap_tab():
     mask_right.release(fn=on_mask_right_changed, inputs=[mask_right], show_progress='hidden')
     mask_erosion.release(fn=on_mask_erosion_changed, inputs=[mask_erosion], show_progress='hidden')
     mask_blur.release(fn=on_mask_blur_changed, inputs=[mask_blur], show_progress='hidden')
+    selected_mask_engine.change(fn=on_mask_engine_changed, inputs=[selected_mask_engine], outputs=[clip_text], show_progress='hidden')
 
 
     target_faces.select(on_select_target_face, None, None)
@@ -160,7 +176,7 @@ def faceswap_tab():
 
     start_event = bt_start.click(fn=start_swap, 
         inputs=[ui.globals.ui_selected_enhancer, selected_face_detection, roop.globals.keep_frames, roop.globals.wait_after_extraction,
-                    roop.globals.skip_audio, max_face_distance, ui.globals.ui_blend_ratio, selected_mask_engine, clip_text,video_swapping_method, no_face_action, vr_mode, autorotate, maskimage],
+                    roop.globals.skip_audio, max_face_distance, ui.globals.ui_blend_ratio, selected_mask_engine, clip_text,video_swapping_method, no_face_action, vr_mode, autorotate, num_swap_steps, maskimage],
         outputs=[bt_start, bt_stop, resultfiles], show_progress='full')
     after_swap_event = start_event.then(fn=on_resultfiles_finished, inputs=[resultfiles], outputs=[resultimage, resultvideo])
     
@@ -207,6 +223,11 @@ def set_mask_offset(index, mask_offset):
             offs[2] = 0.99
             offs[3] = 0.0
         roop.globals.INPUT_FACESETS[SELECTED_INPUT_FACE_INDEX].faces[0].mask_offsets = offs
+
+def on_mask_engine_changed(mask_engine):
+    if mask_engine == "Clip2Seg":
+        return gr.Textbox(interactive=True)
+    return gr.Textbox(interactive=False)
 
 
 
@@ -386,10 +407,10 @@ def on_end_face_selection():
 
 
 def on_preview_frame_changed(frame_num, files, fake_preview, enhancer, detection, face_distance, blend_ratio,
-                              selected_mask_engine, clip_text, no_face_action, vr_mode, auto_rotate, maskimage, show_mask):
+                              selected_mask_engine, clip_text, no_face_action, vr_mode, auto_rotate, maskimage, show_face_area, num_steps):
     global SELECTED_INPUT_FACE_INDEX, manual_masking, current_video_fps
 
-    from roop.core import live_swap
+    from roop.core import live_swap, get_processing_plugins
 
     manual_masking = False
     mask_offsets = (0,0,0,0)
@@ -403,7 +424,6 @@ def on_preview_frame_changed(frame_num, files, fake_preview, enhancer, detection
         return None,None, gr.Slider(info=timeinfo)
 
     filename = files[selected_preview_index].name
-    # time.sleep(0.3)
     if util.is_video(filename) or filename.lower().endswith('gif'):
         current_frame = get_video_frame(filename, frame_num)
         if current_video_fps == 0:
@@ -439,7 +459,14 @@ def on_preview_frame_changed(frame_num, files, fake_preview, enhancer, detection
 
     roop.globals.execution_threads = roop.globals.CFG.max_threads
     mask = layers[0] if layers is not None else None
-    current_frame = live_swap(current_frame, roop.globals.face_swap_mode, mask_engine, clip_text, maskimage, show_mask, SELECTED_INPUT_FACE_INDEX)
+    face_index = SELECTED_INPUT_FACE_INDEX
+    if len(roop.globals.INPUT_FACESETS) <= face_index:
+        face_index = 0
+   
+    options = ProcessOptions(get_processing_plugins(mask_engine), roop.globals.distance_threshold, roop.globals.blend_ratio,
+                              roop.globals.face_swap_mode, face_index, clip_text, maskimage, num_steps, show_face_area)
+
+    current_frame = live_swap(current_frame, options)
     if current_frame is None:
         return gr.Image(visible=True), None, gr.Slider(info=timeinfo)
     return gr.Image(value=util.convert_to_gradio(current_frame), visible=True), gr.ImageEditor(visible=False), gr.Slider(info=timeinfo)
@@ -490,7 +517,7 @@ def on_set_frame(sender:str, frame_num):
 
 
 def on_preview_mask(frame_num, files, clip_text, mask_engine):
-    from roop.core import preview_mask
+    from roop.core import live_swap, get_processing_plugins
     global is_processing
 
     if is_processing or files is None or selected_preview_index >= len(files) or clip_text is None or frame_num is None:
@@ -498,14 +525,24 @@ def on_preview_mask(frame_num, files, clip_text, mask_engine):
         
     filename = files[selected_preview_index].name
     if util.is_video(filename) or filename.lower().endswith('gif'):
-        current_frame = get_video_frame(filename, frame_num)
+        current_frame = get_video_frame(filename, frame_num
+                                        )
     else:
         current_frame = get_image_frame(filename)
-    if current_frame is None:
+    if current_frame is None or mask_engine is None:
         return None
+    if mask_engine == "CLip2Seg":
+        mask_engine = "mask_clip2seg"
+        if clip_text is None or len(clip_text) < 1:
+          mask_engine = None
+    elif mask_engine == "DFL XSeg":
+        mask_engine = "mask_xseg"
+    options = ProcessOptions(get_processing_plugins(mask_engine), roop.globals.distance_threshold, roop.globals.blend_ratio,
+                              "all", 0, clip_text, None, 0, False, True)
 
-    current_frame = preview_mask(current_frame, clip_text, mask_engine)
+    current_frame = live_swap(current_frame, options)
     return util.convert_to_gradio(current_frame)
+
 
 
 def on_clear_input_faces():
@@ -539,7 +576,7 @@ def translate_swap_mode(dropdown_text):
 
 
 def start_swap( enhancer, detection, keep_frames, wait_after_extraction, skip_audio, face_distance, blend_ratio,
-                selected_mask_engine, clip_text, processing_method, no_face_action, vr_mode, autorotate, imagemask, progress=gr.Progress()):
+                selected_mask_engine, clip_text, processing_method, no_face_action, vr_mode, autorotate, num_swap_steps, imagemask, progress=gr.Progress()):
     from ui.main import prepare_environment
     from roop.core import batch_process
     global is_processing, list_files_process
@@ -581,7 +618,7 @@ def start_swap( enhancer, detection, keep_frames, wait_after_extraction, skip_au
     roop.globals.video_quality = roop.globals.CFG.video_quality
     roop.globals.max_memory = roop.globals.CFG.memory_limit if roop.globals.CFG.memory_limit > 0 else None
 
-    batch_process(list_files_process, mask_engine, clip_text, processing_method == "In-Memory processing", imagemask, progress, SELECTED_INPUT_FACE_INDEX)
+    batch_process(list_files_process, mask_engine, clip_text, processing_method == "In-Memory processing", imagemask, num_swap_steps, progress, SELECTED_INPUT_FACE_INDEX)
     is_processing = False
     outdir = pathlib.Path(roop.globals.output_path)
     outfiles = [str(item) for item in outdir.rglob("*") if item.is_file()]
