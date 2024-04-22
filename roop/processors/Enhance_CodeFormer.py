@@ -1,9 +1,7 @@
 from typing import Any, List, Callable
 import cv2 
-import threading
 import numpy as np
 import onnxruntime
-import onnx
 import roop.globals
 
 from roop.typing import Face, Frame, FaceSet
