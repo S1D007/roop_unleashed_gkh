@@ -17,3 +17,5 @@ tqdm==4.66.2
 ftfy
 regex
 pyvirtualcam
+pillow
+pyqrcode

@@ -1,0 +1,9 @@
+services:
+  multi-face-swap:
+    build: .
+    restart: always
+    # ports:
+    #   - "7860:3000"
+    volumes:
+      - .:/app
+    command: python3 run.py
